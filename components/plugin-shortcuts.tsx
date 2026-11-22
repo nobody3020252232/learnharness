@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { KEYBOARD_ACTIONS, KEYMAP_CHANGED_EVENT, loadOverrides, pluginShortcutId, pluginShortcutMatches, resolvePluginShortcuts, eventBinding, isTypingSurface, type PluginPageActionContext, type PluginShortcutCandidate, type KeymapOverrides } from "@/src/core";
+import { KEYBOARD_ACTIONS, KEYMAP_CHANGED_EVENT, loadOverrides, pluginShortcutId, pluginShortcutMatches, resolvePluginShortcuts, eventBinding, isTypingSurface, translateText, type PluginPageActionContext, type PluginShortcutCandidate, type KeymapOverrides, type UiLocale } from "@/src/core";
 import { usePlugins } from "./plugins";
 import type { FrontendPlugin, PluginFrontendManager } from "./plugin-manager";
 import type { InteractionLayersController } from "./interaction-layers";
@@ -40,9 +40,14 @@ export function usePluginShortcutPage(pathname: string, read: () => PluginPageAc
 	const latest = useRef(read); latest.current = read;
 	useLayoutEffect(() => manager?.registerShortcutPage(pathname, () => latest.current()), [manager, pathname]);
 }
-export function pluginShortcutScopeLabel(candidate: PluginShortcutCandidate): string {
+export function pluginShortcutScopeLabel(candidate: PluginShortcutCandidate, locale: UiLocale = "en"): string {
 	const scope = candidate.shortcut.scope;
-	return scope === "app" ? "App-wide" : [...(scope.sessions ?? []).map(kind => kind === "teaching" ? "Teaching" : "Practice"), ...(scope.views?.length ? [`Views: ${scope.views.join(", ")}`] : [])].join(" · ");
+	return scope === "app"
+		? translateText(locale, "App-wide", "全局")
+		: [
+			...(scope.sessions ?? []).map(kind => kind === "teaching" ? translateText(locale, "Teaching", "教学") : translateText(locale, "Practice", "练习")),
+			...(scope.views?.length ? [translateText(locale, "Views: {views}", "视图：{views}", { views: scope.views.join(", ") })] : []),
+		].join(" · ");
 }
 
 /** Window-bubble fallback only; never an independent low-level plugin listener. */

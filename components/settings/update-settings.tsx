@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { UiLocale } from "@/src/core";
+import { useI18n } from "@/components/i18n";
 import { Button } from "@/components/ui/button";
 import { BrailleSpinner } from "@/components/braille-spinner";
 import { SettingsRow, Toggle } from "./controls.tsx";
@@ -44,13 +46,20 @@ export function useUpdateState() {
 	return { state, failed };
 }
 
-export function updateStatusText(state: UpdateState | null): string | null {
+export function updateStatusText(state: UpdateState | null, locale: UiLocale = "en"): string | null {
+	const zh = locale === "zh-CN";
 	switch (state?.status) {
-		case "checking": return "Checking for updates…";
-		case "downloading": return state.version ? `Downloading version ${state.version}…` : "Downloading an update…";
-		case "up-to-date": return "No newer version was found at the last check.";
-		case "downloaded": return `${state.version ? `Version ${state.version}` : "An update"} is ready. It will install when you quit the app.`;
-		case "error": return UPDATE_ERROR;
+		case "checking": return zh ? "正在检查更新…" : "Checking for updates…";
+		case "downloading":
+			return state.version
+				? (zh ? `正在下载版本 ${state.version}…` : `Downloading version ${state.version}…`)
+				: (zh ? "正在下载更新…" : "Downloading an update…");
+		case "up-to-date": return zh ? "上次检查未发现更新版本。" : "No newer version was found at the last check.";
+		case "downloaded":
+			return state.version
+				? (zh ? `版本 ${state.version} 已准备就绪，将在你退出应用时安装。` : `Version ${state.version} is ready. It will install when you quit the app.`)
+				: (zh ? "更新已准备就绪，将在你退出应用时安装。" : "An update is ready. It will install when you quit the app.");
+		case "error": return zh ? "无法检查更新，请稍后重试。" : UPDATE_ERROR;
 		default: return null;
 	}
 }
@@ -68,13 +77,14 @@ export function UpdateSettings({
 	version?: string;
 	homepage?: string;
 }) {
+	const { tr, locale } = useI18n();
 	const { state, failed } = useUpdateState();
 	const [checkFailed, setCheckFailed] = useState(false);
 	useEffect(() => setCheckFailed(false), [state]);
 	const active = state !== null && state.status !== "disabled";
 	const busy = state?.status === "checking" || state?.status === "downloading";
-	const status = state?.status === "downloaded" ? updateStatusText(state)
-		: failed || checkFailed ? UPDATE_ERROR : updateStatusText(state);
+	const status = state?.status === "downloaded" ? updateStatusText(state, locale)
+		: failed || checkFailed ? tr(UPDATE_ERROR, "无法检查更新，请稍后重试。") : updateStatusText(state, locale);
 	const releaseNotes = version && homepage ? `${homepage}/releases/tag/v${version}` : null;
 	const check = () => {
 		setCheckFailed(false);
@@ -84,28 +94,28 @@ export function UpdateSettings({
 	return (
 		<>
 			<SettingsRow
-				label={`Version ${version || "unknown"}`}
+				label={tr("Version {version}", "版本 {version}", { version: version || tr("unknown", "未知") })}
 				testid="row-version"
 				hint={
 					<>
 						{status && <span className="block" role="status" data-testid="update-status">{status}</span>}
-						{active && <span className="block">{MANUAL_UPDATE_HINT}</span>}
-						{releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-foreground hover:underline" data-testid="release-notes">Release notes</a>}
+						{active && <span className="block">{tr(MANUAL_UPDATE_HINT, "检查更新后会自动下载可用版本。已下载的更新将在你退出应用时安装。")}</span>}
+						{releaseNotes && <a href={releaseNotes} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-foreground hover:underline" data-testid="release-notes">{tr("Release notes", "更新日志")}</a>}
 					</>
 				}
 			>
 				{active && (state.status === "downloaded" ? (
-					<Button type="button" size="xs" className="cursor-pointer" data-testid="update-restart" onClick={() => window.lh?.installUpdate?.()}>Restart</Button>
+					<Button type="button" size="xs" className="cursor-pointer" data-testid="update-restart" onClick={() => window.lh?.installUpdate?.()}>{tr("Restart", "重启更新")}</Button>
 				) : (
 					<Button type="button" size="xs" variant="outline" className="cursor-pointer disabled:cursor-not-allowed" data-testid="update-check" disabled={busy} aria-busy={busy} onClick={check}>
-						{busy && <BrailleSpinner label={state.status === "downloading" ? "Downloading update" : "Checking for updates"} />}
-						Check for updates
+						{busy && <BrailleSpinner label={state.status === "downloading" ? tr("Downloading update", "正在下载更新") : tr("Checking for updates", "正在检查更新")} />}
+						{tr("Check for updates", "检查更新")}
 					</Button>
 				))}
 			</SettingsRow>
 			{active && (
-				<SettingsRow label="Automatic updates" hint={AUTO_UPDATE_HINT} testid="row-auto-update">
-					<Toggle checked={autoUpdate} label="auto update" onChange={onAutoUpdateChange} />
+				<SettingsRow label={tr("Automatic updates", "自动更新")} hint={tr(AUTO_UPDATE_HINT, "启动时及每 24 小时检查一次更新。关闭此项不会停止正在进行或已准备就绪的更新。")} testid="row-auto-update">
+					<Toggle checked={autoUpdate} label={tr("auto update", "自动更新")} testid="toggle-auto-update" onChange={onAutoUpdateChange} />
 				</SettingsRow>
 			)}
 		</>

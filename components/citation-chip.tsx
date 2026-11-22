@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Pencil, Quote } from "lucide-react";
 import { MenuShell } from "./menu-shell";
+import { useI18n } from "@/components/i18n";
 import { citationLabel, type TutorCitation } from "@/src/core";
 import { useOptionalInteractionLayers } from "./interaction-layers";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
@@ -29,18 +30,20 @@ export interface CitationChipProps {
 
 /** A sent quote, opened from its transcript chip. */
 export function CitationQuoteCard({ citation, onOpenSource }: { citation: TutorCitation; onOpenSource: () => void }) {
+	const { tr } = useI18n();
 	return (
 		<div className="flex flex-col gap-2">
 			<blockquote className="max-h-64 overflow-y-auto whitespace-pre-wrap border-l-2 border-muted-foreground/30 pl-2 text-sm">{citation.text}</blockquote>
 			{citation.comment ? <p className="whitespace-pre-wrap text-sm">{citation.comment}</p> : null}
 			<button type="button" className="inline-flex items-center gap-1 self-start text-xs font-medium text-muted-foreground hover:text-foreground" onClick={onOpenSource}>
-				<ArrowUpRight aria-hidden="true" className="size-3.5" />Go to source
+				<ArrowUpRight aria-hidden="true" className="size-3.5" />{tr("Go to source", "跳转到原文")}
 			</button>
 		</div>
 	);
 }
 
 export function CitationChip({ citation, variant, contentEditable, source }: CitationChipProps) {
+	const { tr } = useI18n();
 	const actions = useContext(CitationActionsContext);
 	const controller = useOptionalInteractionLayers();
 	const label = citationLabel(citation);
@@ -68,7 +71,9 @@ export function CitationChip({ citation, variant, contentEditable, source }: Cit
 			<button
 				ref={labelRef}
 				type="button"
-				aria-label={variant === "composer" ? `View cited tutor text: ${label}` : `Quoted tutor text: ${label}`}
+				aria-label={variant === "composer"
+					? tr("View cited tutor text: {label}", "查看引用的教师内容：{label}", { label })
+					: tr("Quoted tutor text: {label}", "引用的教师内容：{label}", { label })}
 				aria-expanded={variant === "transcript" ? cardOpen : undefined}
 				title={citation.text}
 				className="inline-flex min-w-0 items-center gap-1 text-left"
@@ -81,7 +86,7 @@ export function CitationChip({ citation, variant, contentEditable, source }: Cit
 			{variant === "composer" ? (
 				<button
 					type="button"
-					aria-label={citation.comment ? "Edit citation comment" : "Add comment to citation"}
+					aria-label={citation.comment ? tr("Edit citation comment", "编辑引用批注") : tr("Add comment to citation", "为引用添加批注")}
 					className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
 					onPointerDown={(event) => event.preventDefault()}
 					onClick={() => { if (source) actions?.editComment?.(citation, source); }}

@@ -3,8 +3,10 @@
 import { useRef, useState } from "react";
 import type { PluginSettingsRow, PluginSettingsSchema } from "@/src/core";
 import { CommitInput, SettingsRow, SettingsSlider, ThinSelect, Toggle } from "@/components/settings/controls";
+import { useI18n } from "@/components/i18n";
 
 function SchemaRow({ row, onError }: { row: PluginSettingsRow; onError?: (error: unknown) => void }) {
+	const { tr, tError } = useI18n();
 	const [error, setError] = useState<string>();
 	const [pending, setPending] = useState(false);
 	const changing = useRef(false);
@@ -18,7 +20,7 @@ function SchemaRow({ row, onError }: { row: PluginSettingsRow; onError?: (error:
 			if (typeof value === "number" && (!Number.isFinite(value) ||
 				("min" in row && row.min !== undefined && value < row.min) ||
 				("max" in row && row.max !== undefined && value > row.max))) {
-				setError("Value is outside the allowed range."); return false;
+				setError(tr("Value is outside the allowed range.", "数值超出允许范围。")); return false;
 			}
 			setError(undefined);
 			changing.current = true;
@@ -49,7 +51,7 @@ function SchemaRow({ row, onError }: { row: PluginSettingsRow; onError?: (error:
 	}
 	return <div data-plugin-setting={row.key}>
 		<SettingsRow label={row.label} hint={row.description} dimmed={disabled}>{control}</SettingsRow>
-		{error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+		{error && <p role="alert" className="text-xs text-destructive">{tError(error)}</p>}
 	</div>;
 }
 

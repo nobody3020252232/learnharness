@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "./ui/button";
+import { useI18n } from "@/components/i18n";
 import { useOptionalInteractionLayers } from "./interaction-layers";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
 import { captureSelection, type CapturedSelection } from "./selection-text";
@@ -36,6 +37,17 @@ export function SelectionToolbarButtons({ capture, actions, onDone }: {
 	actions: readonly SelectionAction[];
 	onDone: () => void;
 }) {
+	const { tr } = useI18n();
+	const localizeSelectionText = (text: string) => {
+		switch (text) {
+			case "Cite": return tr("Cite", "引用");
+			case "Cite selection in your input": return tr("Cite selection in your input", "在输入框中引用选中内容");
+			case "Ask": return tr("Ask", "提问");
+			case "Ask a side question about this selection": return tr("Ask a side question about this selection", "针对选中内容发起旁白提问");
+			case "Shorten selection": return tr("Shorten selection", "请缩短选中内容");
+			default: return text;
+		}
+	};
 	return (
 		<>
 			{actions.filter((action) => action.visible(capture)).map((action) => {
@@ -48,14 +60,14 @@ export function SelectionToolbarButtons({ capture, actions, onDone }: {
 						size="xs"
 						variant="outline"
 						disabled={disabled !== null}
-						aria-label={disabled ?? action.ariaLabel}
+						aria-label={localizeSelectionText(disabled ?? action.ariaLabel)}
 						className="bg-popover shadow-md dark:bg-popover dark:hover:bg-accent"
 						// Keep the learner's selection alive through the click.
 						onPointerDown={(event) => event.preventDefault()}
 						onClick={() => { if (runSelectionAction(action, capture)) onDone(); }}
 					>
 						<Icon aria-hidden="true" className="size-3.5" />
-						{disabled ?? action.label}
+						{localizeSelectionText(disabled ?? action.label)}
 					</Button>
 				);
 			})}
@@ -104,6 +116,7 @@ function selectionVisible(range: Range, viewport: HTMLElement): boolean {
 
 /** The floating toolbar over a tutor-text selection inside `viewport`. */
 export function SelectionToolbar({ viewport, actions }: { viewport: HTMLElement | null; actions: readonly SelectionAction[] }) {
+	const { tr } = useI18n();
 	const controller = useOptionalInteractionLayers();
 	const [state, setState] = useState<{ capture: CapturedSelection; position: SelectionActionPoint } | null>(null);
 	const toolbarRef = useRef<HTMLDivElement>(null);
@@ -184,7 +197,7 @@ export function SelectionToolbar({ viewport, actions }: { viewport: HTMLElement 
 		<div
 			ref={toolbarRef}
 			role="toolbar"
-			aria-label="Selection actions"
+			aria-label={tr("Selection actions", "选中文本操作")}
 			data-testid="selection-toolbar"
 			className="fixed z-50 flex max-w-[calc(100vw-1rem)] gap-1"
 			style={{ left: state.position.x, top: state.position.y }}

@@ -31,6 +31,9 @@
  *   (theme wave, 2026-11-04): main sets nativeTheme.themeSource and
  *   repaints the native window background / control overlay to match.
  *
+ *   window.lh.setLocale(locale) — the active UI locale ("zh-CN" | "en"):
+ *   main rebuilds the native application menu and localizes shell copy.
+ *
  * Channel names are mirrored in electron/main.cjs — keep them in sync.
  */
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
@@ -85,6 +88,7 @@ contextBridge.exposeInMainWorld("lh", {
 	},
 	expandWindow: () => ipcRenderer.send("lh:expand-window"),
 	setAppearance: (a) => ipcRenderer.send("lh:appearance", a),
+	setLocale: (locale) => ipcRenderer.send("lh:locale", locale),
 	onZoom: (cb) => {
 		const listener = (_event, factor) => cb(factor);
 		ipcRenderer.on("lh:zoom", listener);

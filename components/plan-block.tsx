@@ -20,6 +20,7 @@ import {
 import type { PlanBlockData, PlanNodeStatus, PlanTree } from "@/src/core";
 import { derivedNodeStatus, derivePlanStatuses } from "@/src/core";
 import { Hint } from "@/components/ui/hint";
+import { useI18n } from "@/components/i18n";
 import { useAppearance } from "@/components/settings/appearance";
 import { InteractionLayerOwner, useInteractionLayer } from "./interaction-layers";
 
@@ -347,6 +348,7 @@ export function PlanDiagram({
 	 *  flank's width and the band's height rather than run width-first. */
 	fill?: boolean;
 }) {
+	const { tr } = useI18n();
 	// Pad only the full-extent render — the plan window's override viewBox is
 	// a deliberate viewport crop, and the popup keeps its own fit margins.
 	const pad = viewBoxOverride ? 0 : (padUnits ?? 0);
@@ -374,7 +376,7 @@ export function PlanDiagram({
 						: {}),
 			}}
 			role="img"
-			aria-label="Plan diagram"
+			aria-label={tr("Plan diagram", "学习规划图")}
 		>
 			<defs>
 				<marker
@@ -513,17 +515,18 @@ export function PlanDiagram({
  * future DAG window).
  */
 export function PlanBlock({ data, onOpen }: { data: PlanBlockData; onOpen: () => void }) {
+	const { tr } = useI18n();
 	const markerId = useId().replace(/[^a-zA-Z0-9-]/g, "");
 	const statusMap = useMemo(() => new Map(data.nodes.map((n) => [n.id, n.status] as const)), [data]);
 	const statusOf = (id: string): PlanNodeStatus => statusMap.get(id) ?? "upcoming";
 	const plan = usePlanLayout(data);
 	const { appearance } = useAppearance();
 	return (
-		<Hint label="Open the full plan" side="bottom">
+		<Hint label={tr("Open the full plan", "查看完整规划")} side="bottom">
 <button
 			type="button"
 			data-testid="plan-block-full"
-			aria-label="Open the full plan"
+			aria-label={tr("Open the full plan", "查看完整规划")}
 			onClick={onOpen}
 			className="block w-full text-left"
 		>
@@ -590,6 +593,7 @@ const POPUP_PAD = GLOW_REACH;
  * through while the focus owns the session area.
  */
 export function PlanPopup({ messages, onClose }: { messages: readonly PopupMessage[]; onClose: () => void }) {
+	const { tr } = useI18n();
 	const tree = useMemo(() => latestTree(messages), [messages]);
 	const statuses = useMemo(
 		() => (tree ? derivePlanStatuses(tree, messages as Parameters<typeof derivePlanStatuses>[1]) : null),
@@ -721,19 +725,19 @@ export function PlanPopup({ messages, onClose }: { messages: readonly PopupMessa
 			// Ranked inside the session's bounded view stack, below app modals.
 			style={{ zIndex: 100 + layer.order }}
 			role="region"
-			aria-label="The full plan"
+			aria-label={tr("The full plan", "完整规划")}
 			onClick={(e) => {
 				if (e.target === e.currentTarget) onClose();
 			}}
 		>
 			<div className="mb-2 flex items-center gap-2">
-				<span className="text-sm font-medium">The plan</span>
-				<span className="text-xs text-muted-foreground">live — statuses derive from your check outcomes</span>
-				<Hint label="Close" binding="escape" side="left">
+				<span className="text-sm font-medium">{tr("The plan", "学习规划")}</span>
+				<span className="text-xs text-muted-foreground">{tr("live — statuses derive from your check outcomes", "实时状态 — 根据你的掌握检测结果更新")}</span>
+				<Hint label={tr("Close", "关闭")} binding="escape" side="left">
 <button
 					type="button"
 					onClick={onClose}
-					aria-label="Close"
+					aria-label={tr("Close", "关闭")}
 					data-testid="plan-popup-close"
 					className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 				>
@@ -783,22 +787,22 @@ export function PlanPopup({ messages, onClose }: { messages: readonly PopupMessa
 						</div>
 						<PlanLayoutProbe probe={plan.probe} />
 						<div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between p-2">
-							<span className="text-xs text-muted-foreground/60">Drag to pan · scroll to zoom</span>
+							<span className="text-xs text-muted-foreground/60">{tr("Drag to pan · scroll to zoom", "拖动平移 · 滚轮缩放")}</span>
 							<div className="flex gap-1">
-								<Hint label="Zoom out" side="bottom">
+								<Hint label={tr("Zoom out", "缩小")} side="bottom">
 <button
 									type="button"
-									aria-label="Zoom out"
+									aria-label={tr("Zoom out", "缩小")}
 									onClick={() => stepZoom(1 / 1.25)}
 									className="pointer-events-auto flex size-7 items-center justify-center rounded-md border border-border/70 bg-card/80 text-muted-foreground backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
 								>
 									<MinusIcon className="size-3.5" />
 								</button>
 </Hint>
-								<Hint label="Fit plan to screen" side="bottom">
+								<Hint label={tr("Fit plan to screen", "适配屏幕显示")} side="bottom">
 <button
 									type="button"
-									aria-label="Fit plan to screen"
+									aria-label={tr("Fit plan to screen", "适配屏幕显示")}
 									onClick={fitView}
 									data-testid="plan-popup-fit"
 									className="pointer-events-auto flex size-7 items-center justify-center rounded-md border border-border/70 bg-card/80 text-muted-foreground backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
@@ -806,10 +810,10 @@ export function PlanPopup({ messages, onClose }: { messages: readonly PopupMessa
 									<MaximizeIcon className="size-3.5" />
 								</button>
 </Hint>
-								<Hint label="Zoom in" side="bottom">
+								<Hint label={tr("Zoom in", "放大")} side="bottom">
 <button
 									type="button"
-									aria-label="Zoom in"
+									aria-label={tr("Zoom in", "放大")}
 									onClick={() => stepZoom(1.25)}
 									className="pointer-events-auto flex size-7 items-center justify-center rounded-md border border-border/70 bg-card/80 text-muted-foreground backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
 								>
@@ -821,7 +825,7 @@ export function PlanPopup({ messages, onClose }: { messages: readonly PopupMessa
 					</>
 				) : (
 					<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-						No plan in this session yet.
+						{tr("No plan in this session yet.", "当前会话尚未生成学习规划。")}
 					</div>
 				)}
 			</div>

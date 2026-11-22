@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { HostDialog } from "@/components/host-dialog";
+import { useI18n } from "@/components/i18n";
 
 /** The 409 extraction_running line (owner phrasing, node interlude):
  *  the server's error names the extraction; the ACTIVITY DOCK is the
@@ -48,17 +49,24 @@ export function DeleteNodeBody({
 	onRun: () => void;
 	renderFrame?: (frame: ReactElement<{ children: ReactNode }>) => ReactNode;
 }) {
+	const { tr, tError } = useI18n();
 	const frame = (
 		<div
 			role="dialog"
 			aria-modal="true"
-			aria-label="Delete node"
+			aria-label={tr("Delete node", "删除节点")}
 			data-testid="delete-node-dialog"
 			onClick={(e) => e.stopPropagation()}
 			className="w-[32rem] max-w-[calc(100vw-2rem)] rounded-xl border bg-card p-5 shadow-xl"
 		>
 			<h2 className="text-sm font-semibold text-destructive">
-				{folders.length > 0 ? (nodes.length > 0 ? "Delete nodes and remove empty folders?" : "Remove empty folders?") : nodes.length === 1 ? "Delete node?" : `Delete ${nodes.length} nodes?`}
+				{folders.length > 0
+					? (nodes.length > 0
+						? tr("Delete nodes and remove empty folders?", "删除节点并移除空文件夹？")
+						: tr("Remove empty folders?", "移除空文件夹？"))
+					: nodes.length === 1
+						? tr("Delete node?", "删除节点？")
+						: tr("Delete {n} nodes?", "删除 {n} 个节点？", { n: nodes.length })}
 			</h2>
 			{/* The node name(s) below the title in JetBrains Mono (owner,
 			    2026-09-24): the name is the payload — mono suits it, and
@@ -77,18 +85,20 @@ export function DeleteNodeBody({
 				) : (
 					<code data-testid="node-names-code" className="font-mono text-sm text-foreground">
 						{nodes.slice(0, 8).map((n) => n.name).join(", ")}
-						{nodes.length > 8 ? `, and ${nodes.length - 8} more` : ""}
+						{nodes.length > 8 ? tr(", and {n} more", " 等另外 {n} 项", { n: nodes.length - 8 }) : ""}
 					</code>
 				)}
 			</div>
-			{folders.length > 0 && <p className="mt-2 text-sm" data-testid="folder-removal-names">Empty folders: {folders.map((f) => f.name).join(", ")}</p>}
+			{folders.length > 0 && <p className="mt-2 text-sm" data-testid="folder-removal-names">{tr("Empty folders: {names}", "空文件夹：{names}", { names: folders.map((f) => f.name).join(", ") })}</p>}
 			{nodes.length > 0 && <p className="mt-2 text-sm text-muted-foreground" data-testid="node-permanence-line">
 				{nodes.length === 1
-					? "This permanently deletes the node — this cannot be undone."
-					: `This permanently deletes all ${nodes.length} nodes — this cannot be undone.`}
+					? tr("This permanently deletes the node — this cannot be undone.", "此操作将永久删除该节点，且无法撤销。")
+					: tr("This permanently deletes all {n} nodes — this cannot be undone.", "此操作将永久删除全部 {n} 个节点，且无法撤销。", { n: nodes.length })}
 			</p>}
 			<p className="mt-2 text-xs text-muted-foreground" data-testid="folder-removal-explanation">
-				{folders.length > 0 ? "Only the named empty folders are removed. " : ""}Sessions, imported source records, and non-empty folders are kept.
+				{folders.length > 0
+					? tr("Only the named empty folders are removed. Sessions, imported source records, and non-empty folders are kept.", "仅移除所列出的空文件夹。会话、已导入的来源记录及非空文件夹将予以保留。")
+					: tr("Sessions, imported source records, and non-empty folders are kept.", "会话、已导入的来源记录及非空文件夹将予以保留。")}
 			</p>
 			{failure && (
 				<div
@@ -97,7 +107,9 @@ export function DeleteNodeBody({
 					className="mt-3 rounded-sm border border-border/60 px-3 py-2 text-xs"
 				>
 					<span className="text-foreground">
-						{failure.code === "extraction_running" ? EXTRACTION_RETRY_LINE : failure.error}
+						{failure.code === "extraction_running"
+							? tr(EXTRACTION_RETRY_LINE, "当前正在进行知识提取 — 请等待后台任务完成后再试。")
+							: tError(failure.error)}
 					</span>
 					<button
 						type="button"
@@ -106,7 +118,7 @@ export function DeleteNodeBody({
 						disabled={busy}
 						className="ml-3 text-xs text-foreground underline-offset-2 hover:underline disabled:opacity-40"
 					>
-						Try again
+						{tr("Try again", "重试")}
 					</button>
 				</div>
 			)}
@@ -118,7 +130,7 @@ export function DeleteNodeBody({
 					disabled={busy}
 					className="rounded-sm px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
 				>
-					Cancel
+					{tr("Cancel", "取消")}
 				</button>
 				<button
 					type="button"
@@ -130,7 +142,7 @@ export function DeleteNodeBody({
 					// refusal banner): border + text, fill on hover.
 					className="rounded-sm border border-destructive/50 bg-destructive/10 px-3 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-40"
 				>
-					{busy ? "Deleting…" : "Delete"}
+					{busy ? tr("Deleting…", "删除中…") : tr("Delete", "删除")}
 				</button>
 			</div>
 		</div>
@@ -160,6 +172,7 @@ export function DeleteNodeDialog({
 	 *  selection-side callers can prune. */
 	onDeleted: (nodeIds: string[], graphRevision: number) => void;
 }) {
+	const { tr } = useI18n();
 	const [busy, setBusy] = useState(false);
 	const hasItems = Boolean(nodes?.length || folders.length);
 	const [failure, setFailure] = useState<{ code: string; error: string } | null>(null);
@@ -193,7 +206,7 @@ export function DeleteNodeDialog({
 					graphRevision?: number;
 				};
 				if (!res.ok) {
-					setFailure({ code: body.code ?? "error", error: body.error ?? `Delete failed (${res.status})` });
+					setFailure({ code: body.code ?? "error", error: body.error ?? tr("Delete failed ({status})", "删除失败（{status}）", { status: res.status }) });
 					setBusy(false);
 					if (dead.length > 0) onDeleted(dead, revision);
 					return;
@@ -202,14 +215,14 @@ export function DeleteNodeDialog({
 				revision = body.graphRevision ?? revision;
 			}
 			for (const folder of folders) {
-				if (!onRemoveFolder) throw new Error("Folder removal is unavailable.");
+				if (!onRemoveFolder) throw new Error(tr("Folder removal is unavailable.", "当前无法移除文件夹。"));
 				await onRemoveFolder(folder.id);
 				removedFolders.push(folder.id);
 			}
 			if (removedFolders.length > 0) onFoldersDeleted?.(removedFolders);
 			onDeleted(dead, revision);
 		} catch (error) {
-			setFailure({ code: "network", error: folders.length > 0 && error instanceof Error ? error.message : "Delete failed — network error. Try again." });
+			setFailure({ code: "network", error: folders.length > 0 && error instanceof Error ? error.message : tr("Delete failed — network error. Try again.", "删除失败 — 网络错误，请重试。") });
 			if (removedFolders.length > 0) onFoldersDeleted?.(removedFolders);
 			setBusy(false);
 			if (dead.length > 0) onDeleted(dead, revision);

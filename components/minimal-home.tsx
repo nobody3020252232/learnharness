@@ -24,6 +24,7 @@ import { ChainTableOverlay } from "@/components/chain-table.tsx";
 import { GraphCostControl } from "@/components/graph-view.tsx";
 import { NotesImportControl, NotesImportErrors, NotesImportNotices, useNotesImport } from "@/components/notes-import.tsx";
 import { Hint } from "@/components/ui/hint";
+import { useI18n } from "@/components/i18n";
 import type { ChatSummary, GraphCostSummary, GraphSnapshot } from "@/src/core";
 
 /** The quiet centered summary — a pure body (props in, markup out) so
@@ -42,6 +43,7 @@ export function KnowledgeSummary({
 	practiceSessions: number;
 	importedNotes: number;
 }) {
+	const { tr } = useI18n();
 	const empty =
 		propositions === 0 && chains === 0 && teachSessions === 0 && practiceSessions === 0 && importedNotes === 0;
 	return (
@@ -52,29 +54,29 @@ export function KnowledgeSummary({
 			    list) rides after the same parting. */}
 			<div className="flex flex-col gap-1">
 				<p className="font-ui text-sm text-muted-foreground">
-					{propositions} {propositions === 1 ? "proposition" : "propositions"}
+					{propositions === 1 ? tr("{n} proposition", "{n} 个知识点", { n: propositions }) : tr("{n} propositions", "{n} 个知识点", { n: propositions })}
 				</p>
 				<p className="font-ui text-sm text-muted-foreground">
-					{chains} {chains === 1 ? "chain" : "chains"}
+					{chains === 1 ? tr("{n} chain", "{n} 条推理链", { n: chains }) : tr("{n} chains", "{n} 条推理链", { n: chains })}
 				</p>
 			</div>
 			<div className="h-4" aria-hidden="true" />
 			<div className="flex flex-col gap-1">
 				<p className="font-ui text-sm text-muted-foreground">
-					{teachSessions} {teachSessions === 1 ? "teaching session" : "teaching sessions"}
+					{teachSessions === 1 ? tr("{n} teaching session", "{n} 个教学会话", { n: teachSessions }) : tr("{n} teaching sessions", "{n} 个教学会话", { n: teachSessions })}
 				</p>
 				<p className="font-ui text-sm text-muted-foreground">
-					{practiceSessions} {practiceSessions === 1 ? "practice session" : "practice sessions"}
+					{practiceSessions === 1 ? tr("{n} practice session", "{n} 个练习会话", { n: practiceSessions }) : tr("{n} practice sessions", "{n} 个练习会话", { n: practiceSessions })}
 				</p>
 			</div>
 			<div className="h-4" aria-hidden="true" />
 			<p className="font-ui text-sm text-muted-foreground">
-				{importedNotes} {importedNotes === 1 ? "imported note" : "imported notes"}
+				{importedNotes === 1 ? tr("{n} imported note", "{n} 份已导入笔记", { n: importedNotes }) : tr("{n} imported notes", "{n} 份已导入笔记", { n: importedNotes })}
 			</p>
 			{empty && (
 				<div className="pt-2 font-ui text-xs text-muted-foreground/70">
-					<p>Start a session to begin learning.</p>
-					<p className="mt-1">Attach your material with the paperclip or drag and drop.</p>
+					<p>{tr("Start a session to begin learning.", "发起一个会话即可开始学习。")}</p>
+					<p className="mt-1">{tr("Attach your material with the paperclip or drag and drop.", "点击回形针图标或拖放文件以附加你的学习资料。")}</p>
 				</div>
 			)}
 		</div>
@@ -94,6 +96,7 @@ export function MinimalHome({
 	onPracticeSelectionChange?: (nodes: { id: string; name: string; statement: string }[]) => void;
 	onChainSelectClose?: () => void;
 }) {
+	const { tr } = useI18n();
 	const [snapshot, setSnapshot] = useState<GraphSnapshot | null>(null);
 	const [costs, setCosts] = useState<GraphCostSummary | null>(null);
 	const [chats, setChats] = useState<ChatSummary[]>([]);
@@ -157,7 +160,7 @@ export function MinimalHome({
 			<div className="lh-no-drag lh-wco-floating absolute right-2 top-2 z-10 flex max-w-[calc(100%-5.5rem)] flex-col items-end gap-2">
 				<div className="flex min-w-0 items-start gap-2">
 					<div className="graph-chrome-fade-in shrink-0 rounded-xl border bg-card/85 px-1 py-[3px] shadow-lg backdrop-blur">
-						<Hint label="Every reasoning chain" side="bottom">
+						<Hint label={tr("Every reasoning chain", "所有推理链")} side="bottom">
 							<button
 								type="button"
 								onClick={() => setChainsOpen(true)}
@@ -165,7 +168,7 @@ export function MinimalHome({
 								className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent"
 							>
 								<ListTreeIcon className="size-3" />
-								Chains
+								{tr("Chains", "推理链")}
 							</button>
 						</Hint>
 					</div>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CITATION_MAX_COMMENT_LENGTH } from "@/src/core";
 import { Button } from "./ui/button";
+import { useI18n } from "@/components/i18n";
 import { useOptionalInteractionLayers } from "./interaction-layers";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
 
@@ -42,6 +43,7 @@ export function CitationCommentEditor({ initial, onDraftChange, onSave, onCancel
 	onSave: (comment: string, andSend: boolean) => void;
 	onCancel: () => void;
 }) {
+	const { tr } = useI18n();
 	const controller = useOptionalInteractionLayers();
 	const [draft, setDraft] = useState(initial ?? "");
 	const areaRef = useRef<HTMLTextAreaElement>(null);
@@ -53,9 +55,9 @@ export function CitationCommentEditor({ initial, onDraftChange, onSave, onCancel
 				ref={areaRef}
 				value={draft}
 				rows={2}
-				aria-label="Comment on selected text"
-				aria-description="Enter to save the citation comment; Command/Ctrl+Enter to save and send; Shift+Enter for a new line."
-				placeholder="Add an optional comment..."
+				aria-label={tr("Comment on selected text", "批注选中内容")}
+				aria-description={tr("Enter to save the citation comment; Command/Ctrl+Enter to save and send; Shift+Enter for a new line.", "按 Enter 保存引用批注；按 Command/Ctrl+Enter 保存并发送；按 Shift+Enter 换行。")}
+				placeholder={tr("Add an optional comment...", "添加可选批注...")}
 				className="field-sizing-content max-h-40 min-h-16 w-full resize-none rounded-md border bg-background px-2 py-1.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
 				onChange={(event) => { setDraft(event.target.value); onDraftChange(event.target.value); }}
 				onKeyDown={(event) => {
@@ -69,12 +71,12 @@ export function CitationCommentEditor({ initial, onDraftChange, onSave, onCancel
 				}}
 			/>
 			{tooLong ? (
-				<p role="status" className="text-xs text-destructive">Comments can contain up to 8,000 characters.</p>
+				<p role="status" className="text-xs text-destructive">{tr("Comments can contain up to 8,000 characters.", "批注最多可包含 8,000 个字符。")}</p>
 			) : null}
 			<div className="flex justify-end gap-2">
-				<Button type="button" size="xs" variant="outline" onPointerDown={(event) => event.preventDefault()} onClick={onCancel}>Cancel</Button>
+				<Button type="button" size="xs" variant="outline" onPointerDown={(event) => event.preventDefault()} onClick={onCancel}>{tr("Cancel", "取消")}</Button>
 				<Button type="button" size="xs" disabled={tooLong} onPointerDown={(event) => event.preventDefault()} onClick={() => onSave(draft, false)}>
-					{tooLong ? "Shorten comment" : "Save"}
+					{tooLong ? tr("Shorten comment", "请缩短批注") : tr("Save", "保存")}
 				</Button>
 			</div>
 		</div>

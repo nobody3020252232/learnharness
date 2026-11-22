@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronRightIcon } from "lucide-react";
+import { useI18n } from "@/components/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,9 +22,15 @@ export interface GraphContextData {
 }
 
 export function GraphContextCard({ data }: { data: GraphContextData }) {
+	const { tr } = useI18n();
 	const [open, setOpen] = useState(false);
 	const { propositions = [], chains = [] } = data ?? {};
-	const noun = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+	const propLabel = propositions.length === 1
+		? tr("{n} proposition", "{n} 个知识点", { n: propositions.length })
+		: tr("{n} propositions", "{n} 个知识点", { n: propositions.length });
+	const chainLabel = chains.length === 1
+		? tr("{n} chain", "{n} 条推理链", { n: chains.length })
+		: tr("{n} chains", "{n} 条推理链", { n: chains.length });
 	return (
 		<div data-testid="graph-context-card" className="my-1">
 			<button
@@ -33,10 +40,10 @@ export function GraphContextCard({ data }: { data: GraphContextData }) {
 				className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border/70 px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
 			>
 				<ChevronRightIcon aria-hidden="true" className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")} />
-				<span className="font-medium">Graph context</span>
+				<span className="font-medium">{tr("Graph context", "图谱上下文")}</span>
 				<span className="min-w-0 flex-1 truncate">
-					{noun(propositions.length, "proposition", "propositions")}
-					{chains.length > 0 ? ` · ${noun(chains.length, "chain", "chains")}` : ""}
+					{propLabel}
+					{chains.length > 0 ? ` · ${chainLabel}` : ""}
 				</span>
 			</button>
 			{open && (

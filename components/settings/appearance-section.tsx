@@ -37,27 +37,56 @@ import {
 	TRANSCRIPT_WIDTH_MAX_REM,
 	TRANSCRIPT_WIDTH_MIN_REM,
 	TRANSCRIPT_WIDTH_STEP_REM,
+	UI_LOCALE_OPTIONS,
 	resolveSettings,
 	THEME_COLOR_KEYS,
 	type AppearanceSettings,
 	type GraphSettings,
 	type ThemeColorKey,
+	type UiLocale,
 } from "@/src/core";
+import { useI18n } from "@/components/i18n";
 import { MenuShell } from "@/components/menu-shell";
 import { useInteractionLayers } from "@/components/interaction-layers";
 import { Hint } from "@/components/ui/hint";
 import { BUNDLED_READING_FONTS, useAppearance } from "./appearance.tsx";
 import { FontMenuList } from "./model-menu";
 import { ThemeCards } from "./theme-cards.tsx";
-import { CommitInput, SettingsMenuTrigger, SettingsRow, Toggle } from "./controls.tsx";
+import { CommitInput, SettingsMenuTrigger, SettingsRow, SettingsSegmentedControl, Toggle } from "./controls.tsx";
+
+/** Shared language switcher row used in both Appearance and General settings. */
+export function InterfaceLanguageRow({
+	value,
+	onChange,
+}: {
+	value: UiLocale;
+	onChange: (next: UiLocale) => void;
+}) {
+	const { tr } = useI18n();
+	return (
+		<SettingsRow
+			label={tr("Interface language", "界面语言")}
+			hint={tr("Switch display language between Simplified Chinese and English", "在简体中文与英文之间切换界面显示语言")}
+			testid="row-interface-language"
+		>
+			<SettingsSegmentedControl
+				label={tr("Interface language", "界面语言")}
+				testidPrefix="locale"
+				options={UI_LOCALE_OPTIONS.map((opt) => ({ value: opt.id, label: opt.nativeLabel }))}
+				value={value}
+				onChange={onChange}
+			/>
+		</SettingsRow>
+	);
+}
 
 /** The slider position past the last width step: Full (no cap). */
 const TRANSCRIPT_FULL_POSITION = TRANSCRIPT_WIDTH_MAX_REM + TRANSCRIPT_WIDTH_STEP_REM;
 
 /** The transcript width's label: px at the root's 16px rem, or Full.
  *  Exported for tests. */
-export function transcriptWidthLabel(rem: number | null): string {
-	return rem === null ? "Full" : `${rem * 16}px`;
+export function transcriptWidthLabel(rem: number | null, locale: UiLocale = "en"): string {
+	return rem === null ? (locale === "zh-CN" ? "全宽" : "Full") : `${rem * 16}px`;
 }
 
 /**
@@ -66,6 +95,7 @@ export function transcriptWidthLabel(rem: number | null): string {
  * native `change` (release / keyboard step) — not one write per tick.
  */
 function TranscriptWidthSlider({ value, onCommit }: { value: number | null; onCommit: (rem: number | null) => void }) {
+	const { tr, locale } = useI18n();
 	const position = value ?? TRANSCRIPT_FULL_POSITION;
 	const [draft, setDraft] = useState(position);
 	const inputRef = useRef<HTMLInputElement>(null);
@@ -88,8 +118,8 @@ function TranscriptWidthSlider({ value, onCommit }: { value: number | null; onCo
 			<input
 				ref={inputRef}
 				type="range"
-				aria-label="Transcript width"
-				aria-valuetext={transcriptWidthLabel(draftRem)}
+				aria-label={tr("Transcript width", "对话区最大宽度")}
+				aria-valuetext={transcriptWidthLabel(draftRem, locale)}
 				data-testid="input-transcript-width"
 				min={TRANSCRIPT_WIDTH_MIN_REM}
 				max={TRANSCRIPT_FULL_POSITION}
@@ -98,7 +128,7 @@ function TranscriptWidthSlider({ value, onCommit }: { value: number | null; onCo
 				onChange={(e) => setDraft(Number(e.target.value))}
 				className="h-1.5 w-40 accent-primary"
 			/>
-			<span data-testid="transcript-width-value" className="w-12 text-right text-[11px] tabular-nums text-muted-foreground">{transcriptWidthLabel(draftRem)}</span>
+			<span data-testid="transcript-width-value" className="w-12 text-right text-[11px] tabular-nums text-muted-foreground">{transcriptWidthLabel(draftRem, locale)}</span>
 		</span>
 	);
 }
@@ -150,19 +180,19 @@ export function composeFontFamily(
 }
 
 /** The Colors grid's labels and the one hint that explains a key. */
-const COLOR_LABELS: Record<ThemeColorKey, { label: string; note?: string }> = {
-	background: { label: "Background" },
-	accent: { label: "Accent", note: "Focus rings, toggles, selection" },
-	surface: { label: "Surface", note: "Cards, inputs, sidebar" },
-	bold: { label: "Bold" },
-	border: { label: "Border" },
-	italic: { label: "Italic" },
-	text: { label: "Text" },
-	code: { label: "Inline code" },
-	textMuted: { label: "Muted text" },
-	error: { label: "Error" },
-	success: { label: "Success" },
-	warning: { label: "Warning" },
+const COLOR_LABELS: Record<ThemeColorKey, { label: string; labelZh: string; note?: string; noteZh?: string }> = {
+	background: { label: "Background", labelZh: "背景" },
+	accent: { label: "Accent", labelZh: "强调色", note: "Focus rings, toggles, selection", noteZh: "焦点外框、开关、选中态" },
+	surface: { label: "Surface", labelZh: "表面背景", note: "Cards, inputs, sidebar", noteZh: "卡片、输入框、侧边栏" },
+	bold: { label: "Bold", labelZh: "加粗文字" },
+	border: { label: "Border", labelZh: "边框" },
+	italic: { label: "Italic", labelZh: "斜体文字" },
+	text: { label: "Text", labelZh: "正文文字" },
+	code: { label: "Inline code", labelZh: "行内代码" },
+	textMuted: { label: "Muted text", labelZh: "次要文字" },
+	error: { label: "Error", labelZh: "错误" },
+	success: { label: "Success", labelZh: "成功" },
+	warning: { label: "Warning", labelZh: "警告" },
 };
 
 /** The legacy test ids of the three pre-theme rows (kept stable). */
@@ -220,10 +250,13 @@ function ColorOverrideRow({
 	effective: string;
 	onCommit: (next: string) => boolean | Promise<boolean>;
 }) {
-	const { label, note } = COLOR_LABELS[colorKey];
-	const empty = `Empty = ${themeColor}`;
+	const { tr, isZh } = useI18n();
+	const { label, labelZh, note, noteZh } = COLOR_LABELS[colorKey];
+	const displayLabel = tr(label, labelZh);
+	const empty = tr("Empty = {color}", "留空 = {color}", { color: themeColor });
+	const displayNote = note && noteZh ? tr(note, noteZh) : note;
 	return (
-		<SettingsRow label={label} hint={note ? `${note} · ${empty}` : empty} testid={`row-color-${colorKey}`}>
+		<SettingsRow label={displayLabel} hint={displayNote ? `${displayNote} · ${empty}` : empty} testid={`row-color-${colorKey}`}>
 			<span className="flex items-center gap-2">
 				<span
 					aria-hidden
@@ -234,7 +267,7 @@ function ColorOverrideRow({
 				<CommitInput
 					value={value}
 					placeholder={themeColor}
-					ariaLabel={`${label.toLowerCase()} hex`}
+					ariaLabel={tr("{label} hex", "{label} 十六进制色值", { label: isZh ? labelZh : label.toLowerCase() })}
 					testid={LEGACY_TESTIDS[colorKey] ?? `input-color-${colorKey}`}
 					onCommit={onCommit}
 				/>
@@ -252,6 +285,7 @@ export function AppearanceSection({
 	/** PUT the whole appearance section; the page re-applies on success. */
 	onSectionChange: (next: AppearanceSettings) => boolean | Promise<boolean>;
 }) {
+	const { tr } = useI18n();
 	const { appearance: resolved, activeTheme, colors, themes, refreshThemes } = useAppearance();
 	const md = appearance?.mdRendering;
 
@@ -337,6 +371,10 @@ export function AppearanceSection({
 
 	return (
 		<>
+			<InterfaceLanguageRow
+				value={appearance?.locale ?? resolved.locale}
+				onChange={(nextLocale) => void onSectionChange({ ...appearance, locale: nextLocale })}
+			/>
 			<ThemeCards
 				themes={themes}
 				active={activeTheme}
@@ -353,9 +391,9 @@ export function AppearanceSection({
 			<div data-testid="group-colors" className="mt-5 flex flex-col gap-2">
 				<div className="flex items-end justify-between gap-4">
 					<p className="text-xs uppercase tracking-widest text-muted-foreground">
-						Colors{" "}
+						{tr("Colors", "颜色")}{" "}
 						<span className="normal-case tracking-normal text-muted-foreground/70">
-							· overrides on top of the theme, kept when you switch
+							{tr("· overrides on top of the theme, kept when you switch", "· 覆盖当前主题配色，切换主题时保留")}
 						</span>
 					</p>
 					<button
@@ -364,7 +402,7 @@ export function AppearanceSection({
 						onClick={() => onSectionChange(clearColorOverrides(appearance))}
 						className="h-6 shrink-0 rounded-sm px-2 font-ui text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 					>
-						Reset all
+						{tr("Reset all", "全部重置")}
 					</button>
 				</div>
 				<div className="grid grid-cols-2 gap-x-10 gap-y-2">
@@ -380,10 +418,10 @@ export function AppearanceSection({
 					))}
 				</div>
 			</div>
-			<p className="mt-5 mb-2 text-xs uppercase tracking-widest text-muted-foreground">Typography</p>
+			<p className="mt-5 mb-2 text-xs uppercase tracking-widest text-muted-foreground">{tr("Typography", "排版")}</p>
 			<SettingsRow
-				label="Reading font"
-				hint={`Empty = ${DEFAULT_READING_FONT}`}
+				label={tr("Reading font", "阅读字体")}
+				hint={tr("Empty = {font}", "留空 = {font}", { font: DEFAULT_READING_FONT })}
 				testid="row-font"
 			>
 				<span ref={fontMenuOpen ? menuAnchorRef : undefined} className="relative flex items-center gap-2">
@@ -397,7 +435,7 @@ export function AppearanceSection({
 						const triggerButton = (
 							<SettingsMenuTrigger
 								value={appearance?.fontFamily || DEFAULT_READING_FONT}
-								aria-label="Reading font"
+								aria-label={tr("Reading font", "阅读字体")}
 								aria-expanded={fontMenuOpen}
 								data-testid="font-trigger"
 								onClick={openFontMenu}
@@ -407,7 +445,7 @@ export function AppearanceSection({
 						return fontMenuOpen ? (
 							triggerButton
 						) : (
-							<Hint label="Choose from your installed fonts" side="left">
+							<Hint label={tr("Choose from your installed fonts", "从本机已安装的字体中选择")} side="left">
 								{triggerButton}
 							</Hint>
 						);
@@ -429,21 +467,21 @@ export function AppearanceSection({
 										? undefined
 										: localFonts === null
 											? enumEmpty
-												? "Common families — installed fonts could not be read"
-												: "Common families — your installed list needs the desktop app"
-											: "Your installed fonts"
+												? tr("Common families — installed fonts could not be read", "常用字体 — 无法读取系统已安装字体")
+												: tr("Common families — your installed list needs the desktop app", "常用字体 — 读取本机已安装字体需要桌面应用")
+											: tr("Your installed fonts", "本机已安装的字体")
 								}
 							/>
 						</MenuShell>
 					)}
 				</span>
 			</SettingsRow>
-			<SettingsRow label="Reading font size" hint={`${resolved.proseFontSize}px`} testid="row-prose-size">
+			<SettingsRow label={tr("Reading font size", "阅读字号")} hint={`${resolved.proseFontSize}px`} testid="row-prose-size">
 				<CommitInput
 					type="number"
 					value={String(appearance?.proseFontSize ?? "")}
 					placeholder="16"
-					ariaLabel="prose font size"
+					ariaLabel={tr("prose font size", "正文字号")}
 					testid="input-prose-size"
 					onCommit={(v) => {
 						// Empty = factory default (owner, fix wave): omit the key so the record
@@ -458,33 +496,36 @@ export function AppearanceSection({
 					}}
 				/>
 			</SettingsRow>
-			<SettingsRow label="Code ligatures" testid="row-code-ligatures">
+			<SettingsRow label={tr("Code ligatures", "代码连字")} testid="row-code-ligatures">
 				<Toggle
 					checked={resolved.codeLigatures}
-					label="Code ligatures"
+					label={tr("Code ligatures", "代码连字")}
+					testid="toggle-code-ligatures"
 					onChange={(on) => onSectionChange({ ...appearance, codeLigatures: on })}
 				/>
 			</SettingsRow>
-			<SettingsRow label="Session names in serif" testid="row-session-serif">
+			<SettingsRow label={tr("Session names in serif", "会话标题使用衬线体")} testid="row-session-serif">
 				<Toggle
 					checked={appearance?.sessionNameSerif ?? true}
-					label="session names serif"
+					label={tr("session names serif", "会话标题衬线体")}
+					testid="toggle-session-names-serif"
 					onChange={(on) => onSectionChange({ ...appearance, sessionNameSerif: on })}
 				/>
 			</SettingsRow>
-			<SettingsRow label="Compact session list" testid="row-compact-session-list">
+			<SettingsRow label={tr("Compact session list", "紧凑会话列表")} testid="row-compact-session-list">
 				<Toggle
 					checked={resolved.compactSessionList}
-					label="Compact session list"
+					label={tr("Compact session list", "紧凑会话列表")}
+					testid="toggle-compact-session-list"
 					onChange={(on) => onSectionChange({ ...appearance, compactSessionList: on })}
 				/>
 			</SettingsRow>
-			<SettingsRow label="Heading weight" hint={`${resolved.mdRendering.headingWeight}`} testid="row-heading-weight">
+			<SettingsRow label={tr("Heading weight", "标题字重")} hint={`${resolved.mdRendering.headingWeight}`} testid="row-heading-weight">
 				<CommitInput
 					type="number"
 					value={String(md?.headingWeight ?? "")}
 					placeholder="900"
-					ariaLabel="heading weight"
+					ariaLabel={tr("heading weight", "标题字重")}
 					testid="input-heading-weight"
 					onCommit={(v) => {
 						// Empty = factory default (owner, fix wave): Number("") is 0, so
@@ -501,17 +542,18 @@ export function AppearanceSection({
 					}}
 				/>
 			</SettingsRow>
-			<SettingsRow label="Transcript width" testid="row-transcript-width">
+			<SettingsRow label={tr("Transcript width", "对话区最大宽度")} testid="row-transcript-width">
 				<TranscriptWidthSlider
 					value={resolved.transcriptMaxWidth}
 					// Full = absence (the unset representation for numbers).
 					onCommit={(rem) => { void onSectionChange({ ...appearance, transcriptMaxWidth: rem ?? undefined }); }}
 				/>
 			</SettingsRow>
-			<SettingsRow label="Adapt question layout" testid="row-adaptive-questions">
+			<SettingsRow label={tr("Adapt question layout", "自适应题目排版")} testid="row-adaptive-questions">
 				<Toggle
 					checked={resolved.adaptiveQuestions}
-					label="Adapt question layout"
+					label={tr("Adapt question layout", "自适应题目排版")}
+					testid="toggle-adapt-question-layout"
 					onChange={(on) => onSectionChange({ ...appearance, adaptiveQuestions: on })}
 				/>
 			</SettingsRow>
@@ -526,6 +568,7 @@ export function GraphSection({
 	graph: GraphSettings | undefined;
 	onSectionChange: (next: GraphSettings) => boolean | Promise<boolean>;
 }) {
+	const { tr } = useI18n();
 	// Wave 7 collapse (owner ruling 2026-09-23): the section is the MASTER
 	// SWITCH — the embedding/clustering/labeling rungs are gone; clustering
 	// is the free birth-session partition derived on read, labels ARE session
@@ -546,10 +589,11 @@ export function GraphSection({
 			    switch below arrived: off ≠ no graph, off = the graph stops
 			    growing. The testid keeps the old name's shape (row-enabled) so
 			    this stays one rename, not a test re-pin. */}
-			<SettingsRow label="Extraction" hint="Off = the graph stops growing" testid="graph-row-enabled">
+			<SettingsRow label={tr("Extraction", "知识提取")} hint={tr("Off = the graph stops growing", "关闭后知识图谱将停止增长")} testid="graph-row-enabled">
 				<Toggle
 					checked={graph?.enabled ?? true}
-					label="extraction enabled"
+					label={tr("extraction enabled", "启用知识提取")}
+					testid="toggle-extraction-enabled"
 					onChange={(on) =>
 						// Compose, never replace-whole (the section PUT is, but the
 					// row must not drop its sibling field — fixed with the budget
@@ -562,15 +606,16 @@ export function GraphSection({
 			    round): display-only. Off = the home shows the chains view
 			    instead of the canvas. The ledgers, the pipeline, everything
 			    data keeps working — that is the extraction switch above. */}
-			<SettingsRow label="Graph rendering" hint="Off = home shows the chains view" testid="graph-row-rendering">
+			<SettingsRow label={tr("Graph rendering", "图谱渲染")} hint={tr("Off = home shows the chains view", "关闭后首页将显示链式列表视图")} testid="graph-row-rendering">
 				<Toggle
 					checked={graph?.rendering ?? true}
-					label="graph rendering enabled"
+					label={tr("graph rendering enabled", "启用图谱渲染")}
+					testid="toggle-graph-rendering-enabled"
 					onChange={(on) => onSectionChange({ ...graph, rendering: on })}
 				/>
 			</SettingsRow>
 			<SettingsRow
-				label="Extraction chunk budget"
+				label={tr("Extraction chunk budget", "提取分块 Token 预算")}
 				hint={`${resolved.extractionChunkTokens} tok`}
 				testid="graph-row-chunk-tokens"
 			>
@@ -578,7 +623,7 @@ export function GraphSection({
 					type="number"
 					value={String(graph?.extractionChunkTokens ?? "")}
 					placeholder={String(resolved.extractionChunkTokens)}
-					ariaLabel="extraction chunk budget"
+					ariaLabel={tr("extraction chunk budget", "提取分块预算")}
 					testid="input-chunk-tokens"
 					onCommit={(v) => {
 						// Empty = factory default (the fix-wave discipline): absence is

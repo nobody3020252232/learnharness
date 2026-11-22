@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { HostDialog } from "@/components/host-dialog";
-import type { ChatDeleteMode, ChatListItem, FolderDeletionScope } from "@/src/core";
+import { useI18n } from "@/components/i18n";
+import type { ChatDeleteMode, ChatListItem, FolderDeletionScope, UiLocale } from "@/src/core";
 
 /** The graph-traces checkbox copy (owner, 2026-09-24 flow rework — was
  *  the delete-nodes option's body in the two-button design): the
@@ -31,11 +32,43 @@ export const SESSION_DELETE_COPY: DeleteDialogCopy = {
 	traces: TRACES_COPY,
 };
 
+const SESSION_DELETE_COPY_ZH: DeleteDialogCopy = {
+	label: "删除会话",
+	testid: "delete-session-dialog",
+	heading: "删除会话？",
+	body: "此操作将永久移除该会话，包括其中的消息、后台任务与提取记录。除非勾选下方选项，否则该会话已添加到图谱中的内容将会保留。此操作无法撤销。",
+	traces: {
+		title: "同时移除它的图谱痕迹",
+		body: "该会话的知识点、连线与事件也会一并从图谱中移除。若其他会话或已导入笔记也覆盖了同一知识点，则会予以保留；仅由本会话创建的知识点将被彻底移除。",
+	},
+};
+
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** The folder Delete's wording (owner, 2026-11-18): the session dialog's
  *  shape, plural, saying what goes and where notes move. */
-export function folderDeleteCopy(input: { sessions: number; subfolders: number; notes: number; parentName: string | null }): DeleteDialogCopy {
+export function folderDeleteCopy(
+	input: { sessions: number; subfolders: number; notes: number; parentName: string | null },
+	locale: UiLocale = "en",
+): DeleteDialogCopy {
+	if (locale === "zh-CN") {
+		const what = input.subfolders
+			? `${input.sessions} 个会话和 ${input.subfolders} 个子文件夹`
+			: `${input.sessions} 个会话`;
+		const notes = input.notes
+			? ` 其中的 ${input.notes} 份已导入笔记文件将移至${input.parentName === null ? "顶层目录" : `“${input.parentName}”`}。`
+			: "";
+		return {
+			label: "删除文件夹",
+			testid: "delete-folder-dialog",
+			heading: "删除文件夹？",
+			body: `此操作将永久移除该文件夹及其中的 ${what}，包括这些会话的消息、后台任务与提取记录。除非勾选下方选项，否则它们已添加到图谱中的内容将会保留。${notes}此操作无法撤销。`,
+			traces: {
+				title: "同时移除它们的图谱痕迹",
+				body: "这些会话的知识点、连线与事件也会一并从图谱中移除。若其他会话或已导入笔记也覆盖了同一知识点，则会予以保留；仅由这些会话创建的知识点将被彻底移除。",
+			},
+		};
+	}
 	const what = [count(input.sessions, "session", "sessions"), ...(input.subfolders ? [count(input.subfolders, "subfolder", "subfolders")] : [])].join(" and ");
 	const notes = input.notes
 		? ` ${count(input.notes, "imported notes file", "imported notes files")} inside ${input.notes === 1 ? "moves" : "move"} to ${input.parentName === null ? "the top level" : `“${input.parentName}”`}.`
@@ -86,6 +119,7 @@ export function DeleteSessionDialog({
 	/** Success path — the sidebar owns navigation + list patching. */
 	onDeleted: (id: string, mode: ChatDeleteMode, graphRevision: number) => void;
 }) {
+	const { tr } = useI18n();
 	const [traces, setTraces] = useState(false);
 	const [busy, setBusy] = useState(false);
 	// Retry IS pressing Delete again: the mode always derives from the
@@ -119,13 +153,13 @@ export function DeleteSessionDialog({
 			if (!res.ok) {
 				// 409 (turn/jobs running) and 503 (extraction winding down) are
 				// both retryable — keep the dialog open, show the server's line.
-				setFailure({ code: body.code ?? "error", error: body.error ?? `Delete failed (${res.status})` });
+				setFailure({ code: body.code ?? "error", error: body.error ?? tr("Delete failed ({status})", "删除失败（{status}）", { status: res.status }) });
 				setBusy(false);
 				return;
 			}
 			onDeleted(chat.id, mode, body.graphRevision ?? 0);
 		} catch {
-			setFailure({ code: "network", error: "Delete failed — network error. Try again." });
+			setFailure({ code: "network", error: tr("Delete failed — network error. Try again.", "删除失败 — 网络错误，请重试。") });
 			setBusy(false);
 		}
 	};
@@ -172,16 +206,18 @@ export function DeleteSessionBody({
 	/** The wording; the folder Delete reuses this exact surface. */
 	copy?: DeleteDialogCopy;
 }) {
+	const { tr, isZh, tError } = useI18n();
+	const effectiveCopy = isZh && copy === SESSION_DELETE_COPY ? SESSION_DELETE_COPY_ZH : copy;
 	const frame = (
 		<div
 			role="dialog"
 			aria-modal="true"
-			aria-label={copy.label}
-			data-testid={copy.testid}
+			aria-label={effectiveCopy.label}
+			data-testid={effectiveCopy.testid}
 			onClick={(e) => e.stopPropagation()}
 			className="w-[32rem] max-w-[calc(100vw-2rem)] rounded-xl border bg-card p-5 shadow-xl"
 		>
-			<h2 className="text-sm font-semibold text-destructive">{copy.heading}</h2>
+			<h2 className="text-sm font-semibold text-destructive">{effectiveCopy.heading}</h2>
 			{/* The session name below the title in JetBrains Mono (owner,
 			    2026-09-24): no code-block chrome — the font already says
 			    code. Owner, 2026-10-13 polish: normal text-sm size (was
@@ -192,7 +228,7 @@ export function DeleteSessionBody({
 					{chat.title}
 				</code>
 			</div>
-			<p className="mt-2 text-sm text-muted-foreground">{copy.body}</p>
+			<p className="mt-2 text-sm text-muted-foreground">{effectiveCopy.body}</p>
 			<label
 				data-testid={TRACES_COPY.testid}
 				className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-lg border border-border/60 px-4 py-3"
@@ -206,8 +242,8 @@ export function DeleteSessionBody({
 					className="mt-0.5 size-4 shrink-0 accent-primary"
 				/>
 				<span className="min-w-0">
-					<span className="block text-sm text-foreground">{copy.traces.title}</span>
-					<span className="mt-1 block text-xs text-muted-foreground">{copy.traces.body}</span>
+					<span className="block text-sm text-foreground">{effectiveCopy.traces.title}</span>
+					<span className="mt-1 block text-xs text-muted-foreground">{effectiveCopy.traces.body}</span>
 				</span>
 			</label>
 			{failure && (
@@ -216,7 +252,7 @@ export function DeleteSessionBody({
 					data-testid="delete-failure"
 					className="mt-3 rounded-sm border border-border/60 px-3 py-2 text-xs"
 				>
-					<span className="text-foreground">{failure.error}</span>
+					<span className="text-foreground">{tError(failure.error)}</span>
 					<button
 						type="button"
 						data-testid="delete-retry"
@@ -224,7 +260,7 @@ export function DeleteSessionBody({
 						disabled={busy}
 						className="ml-3 text-xs text-foreground underline-offset-2 hover:underline disabled:opacity-40"
 					>
-						Try again
+						{tr("Try again", "重试")}
 					</button>
 				</div>
 			)}
@@ -239,7 +275,7 @@ export function DeleteSessionBody({
 					disabled={busy}
 					className="rounded-sm px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
 				>
-					Cancel
+					{tr("Cancel", "取消")}
 				</button>
 				<button
 					type="button"
@@ -248,7 +284,7 @@ export function DeleteSessionBody({
 					disabled={busy}
 					className="rounded-sm border border-destructive/50 bg-destructive/10 px-3 py-1.5 text-xs text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-40"
 				>
-					{busy ? "Deleting…" : "Delete"}
+					{busy ? tr("Deleting…", "删除中…") : tr("Delete", "删除")}
 				</button>
 			</div>
 		</div>
@@ -268,6 +304,7 @@ export function DeleteFolderDialog({
 	onClose: () => void;
 	onDeleted: (result: { deletedChatIds: string[]; graphRevision: number }) => void;
 }) {
+	const { tr } = useI18n();
 	const [traces, setTraces] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [failure, setFailure] = useState<{ code: string; error: string } | null>(null);
@@ -292,17 +329,17 @@ export function DeleteFolderDialog({
 			});
 			const body = (await res.json()) as { error?: string; code?: string; graphRevision?: number; deletedChatIds?: string[] };
 			if (body.code === "folder_scope_changed" || body.code === "not_found") {
-				onStale(body.error ?? "This folder changed. Nothing was deleted.");
+				onStale(body.error ?? tr("This folder changed. Nothing was deleted.", "该文件夹内容已变更，未执行删除。"));
 				return;
 			}
 			if (!res.ok) {
-				setFailure({ code: body.code ?? "error", error: body.error ?? `Delete failed (${res.status})` });
+				setFailure({ code: body.code ?? "error", error: body.error ?? tr("Delete failed ({status})", "删除失败（{status}）", { status: res.status }) });
 				setBusy(false);
 				return;
 			}
 			onDeleted({ deletedChatIds: body.deletedChatIds ?? [], graphRevision: body.graphRevision ?? 0 });
 		} catch {
-			setFailure({ code: "network", error: "Delete failed — network error. Try again." });
+			setFailure({ code: "network", error: tr("Delete failed — network error. Try again.", "删除失败 — 网络错误，请重试。") });
 			setBusy(false);
 		}
 	};

@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/components/i18n";
 import { cn } from "@/lib/utils";
 import type { LhViewMessage, LhViewPart } from "@/src/core";
 import { ArrowDownIcon, DownloadIcon } from "lucide-react";
@@ -42,12 +43,19 @@ export type ConversationEmptyStateProps = ComponentProps<"div"> & {
 
 export const ConversationEmptyState = ({
   className,
-  title = "No messages yet",
-  description = "Start a conversation to see messages here",
+  title,
+  description,
   icon,
   children,
   ...props
-}: ConversationEmptyStateProps) => (
+}: ConversationEmptyStateProps) => {
+  const { tr } = useI18n();
+  const resolvedTitle = title ?? tr("No messages yet", "暂无消息");
+  const resolvedDescription =
+    description === undefined
+      ? tr("Start a conversation to see messages here", "开始对话后，消息将显示在这里")
+      : description;
+  return (
   <div
     className={cn(
       "flex size-full flex-col items-center justify-center gap-3 p-8 text-center",
@@ -59,15 +67,16 @@ export const ConversationEmptyState = ({
       <>
         {icon && <div className="text-muted-foreground">{icon}</div>}
         <div className="space-y-1">
-          <h3 className="font-medium text-sm">{title}</h3>
-          {description && (
-            <p className="text-muted-foreground text-sm">{description}</p>
+          <h3 className="font-medium text-sm">{resolvedTitle}</h3>
+          {resolvedDescription && (
+            <p className="text-muted-foreground text-sm">{resolvedDescription}</p>
           )}
         </div>
       </>
     )}
   </div>
-);
+  );
+};
 
 export type ConversationScrollButtonProps = ComponentProps<typeof Button>;
 

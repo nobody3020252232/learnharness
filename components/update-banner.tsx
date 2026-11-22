@@ -13,9 +13,11 @@
 
 import { useState } from "react";
 import { XIcon } from "lucide-react";
+import { useI18n } from "@/components/i18n";
 import { useUpdateState } from "@/components/settings/update-settings.tsx";
 
 export default function UpdateBanner() {
+	const { tr } = useI18n();
 	const { state: ready } = useUpdateState();
 	const [dismissedVersion, setDismissedVersion] = useState<string | null>();
 	if (ready?.status !== "downloaded" || ready.version === dismissedVersion) return null;
@@ -25,19 +27,23 @@ export default function UpdateBanner() {
 			className="fixed right-4 bottom-4 z-50 flex items-center gap-3 rounded-lg border border-border bg-popover px-4 py-3 shadow-lg"
 		>
 			<div className="text-sm">
-				<span className="font-medium">LearnHarness {ready.version ?? "update"} is ready</span>
-				<span className="text-muted-foreground"> — restart to finish installing.</span>
+				<span className="font-medium">
+					{ready.version
+						? tr("LearnHarness {version} is ready", "LearnHarness {version} 已准备就绪", { version: ready.version })
+						: tr("LearnHarness update is ready", "LearnHarness 更新已准备就绪")}
+				</span>
+				<span className="text-muted-foreground">{tr(" — restart to finish installing.", " — 重启应用即可完成安装。")}</span>
 			</div>
 			<button
 				type="button"
 				onClick={() => window.lh?.installUpdate?.()}
 				className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent/80"
 			>
-				Restart
+				{tr("Restart", "重启")}
 			</button>
 			<button
 				type="button"
-				aria-label="Dismiss update notification"
+				aria-label={tr("Dismiss update notification", "关闭更新通知")}
 				onClick={() => setDismissedVersion(ready.version)}
 				className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 			>

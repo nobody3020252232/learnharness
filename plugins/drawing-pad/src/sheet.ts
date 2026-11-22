@@ -7,6 +7,7 @@ import { referenceBounds, viewOrigin } from "./geometry.ts";
 import { paintSegment, paintStroke, paintStrokes, strokeBounds, visibleStrokes, visibleUnderEraser, type Point, type Stroke } from "./strokes.ts";
 import type { PublishReason, SessionSheet, Sheets } from "./state.ts";
 import { appPalette } from "./theme.ts";
+import { tr } from "./i18n.ts";
 
 export interface MountedSheet {
   flush(): void;
@@ -24,12 +25,12 @@ export function mountSheet(container: HTMLElement, ctx: PluginFrontendContext, s
   toolbar.setAttribute("role", "group");
   const viewport = document.createElement("div"); viewport.className = "drawing-pad-viewport";
   viewport.tabIndex = -1; viewport.dataset.pluginInitialFocus = "";
-  viewport.setAttribute("role", "group"); viewport.setAttribute("aria-label", "Drawing sheet");
+  viewport.setAttribute("role", "group"); viewport.setAttribute("aria-label", tr("Drawing sheet", "画板画布"));
   const paper = document.createElement("div"); paper.className = "drawing-pad-paper";
-  const background = document.createElement("img"); background.alt = "Frozen question reference";
+  const background = document.createElement("img"); background.alt = tr("Frozen question reference", "已固定的题目参考");
   background.className = "drawing-pad-background"; background.draggable = false;
   const canvas = document.createElement("canvas"); canvas.className = "drawing-pad-ink";
-  canvas.setAttribute("aria-label", "Draw with a mouse or pen; pan with Hand or a right mouse drag");
+  canvas.setAttribute("aria-label", tr("Draw with a mouse or pen; pan with Hand or a right mouse drag", "使用鼠标或触控笔绘制；使用抓手工具或右键拖动平移画布"));
   const status = document.createElement("div"); status.className = "drawing-pad-status"; status.setAttribute("role", "status");
   paper.append(background, canvas); viewport.append(paper, status); root.append(toolbar, viewport); container.append(root);
   const buttons: PluginWidgetHandle<PluginButtonProps>[] = [];
@@ -44,7 +45,7 @@ export function mountSheet(container: HTMLElement, ctx: PluginFrontendContext, s
   let ink: CanvasRenderingContext2D | undefined;
   const inkContext = () => {
     ink ??= canvas.getContext("2d", { willReadFrequently: true }) ?? undefined;
-    if (!ink) throw new Error("Could not create the drawing canvas.");
+    if (!ink) throw new Error(tr("Could not create the drawing canvas.", "无法创建画布。"));
     return ink;
   };
   let view: { width: number; height: number; pixelRatio: number; origin: { x: number; y: number } } | undefined;
@@ -62,9 +63,9 @@ export function mountSheet(container: HTMLElement, ctx: PluginFrontendContext, s
       ...(icon ? { icon, iconOnly: true } : {}) }, { signal });
     buttons.push(handle); return handle;
   };
-  const pen = toolButton("Pen", () => sheets.setTool(state, "pen"), PEN);
-  const eraser = toolButton("Eraser", () => sheets.setTool(state, "eraser"), ERASER);
-  const hand = toolButton("Hand", () => sheets.setTool(state, "hand"), HAND);
+  const pen = toolButton(tr("Pen", "画笔"), () => sheets.setTool(state, "pen"), PEN);
+  const eraser = toolButton(tr("Eraser", "橡皮擦"), () => sheets.setTool(state, "eraser"), ERASER);
+  const hand = toolButton(tr("Hand", "抓手"), () => sheets.setTool(state, "hand"), HAND);
   const commitHistory = (strokes: Stroke[]) => sheets.update(state, strokes);
   const editable = () => !disposed && !signal.aborted && !preparing && !failure && !!state.draft && pointerId === undefined;
   const canUseEditingShortcuts = () => {
@@ -77,8 +78,8 @@ export function mountSheet(container: HTMLElement, ctx: PluginFrontendContext, s
   const undoHistory = () => { if (canUndo()) commitHistory(state.draft!.strokes.slice(0, -1)); };
   const togglePenEraser = () => { if (editable()) sheets.setTool(state, state.tool === "pen" ? "eraser" : "pen"); };
   const selectHand = () => { if (editable()) sheets.setTool(state, "hand"); };
-  const undo = toolButton("Undo", undoHistory, UNDO);
-  const clear = toolButton("Clear", () => { if (pointerId === undefined && state.draft) commitHistory([]); });
+  const undo = toolButton(tr("Undo", "撤销"), undoHistory, UNDO);
+  const clear = toolButton(tr("Clear", "清空"), () => { if (pointerId === undefined && state.draft) commitHistory([]); });
   const sent = new Map<PluginWidgetHandle<PluginButtonProps>, Partial<PluginButtonProps>>();
   const setButton = (handle: PluginWidgetHandle<PluginButtonProps>, props: Pick<PluginButtonProps, "variant" | "disabled">) => {
     const last = sent.get(handle);
@@ -88,7 +89,8 @@ export function mountSheet(container: HTMLElement, ctx: PluginFrontendContext, s
   const renderChrome = () => {
     if (disposed) return;
     const draft = state.draft;
-    toolbar.setAttribute("aria-label", `Drawing tools. ${state.tool === "pen" ? "Pen" : state.tool === "eraser" ? "Eraser" : "Hand"} selected.`);
+    const selectedTool = state.tool === "pen" ? tr("Pen", "画笔") : state.tool === "eraser" ? tr("Eraser", "橡皮擦") : tr("Hand", "抓手");
+    toolbar.setAttribute("aria-label", tr("Drawing tools. {tool} selected.", "绘图工具。当前已选中{tool}。", { tool: selectedTool }));
     setButton(pen, { variant: state.tool === "pen" ? "secondary" : "outline", disabled: preparing || !!failure });
     setButton(eraser, { variant: state.tool === "eraser" ? "secondary" : "outline", disabled: preparing || !!failure });
     setButton(hand, { variant: state.tool === "hand" ? "secondary" : "outline", disabled: preparing || !!failure });
@@ -98,7 +100,7 @@ export function mountSheet(container: HTMLElement, ctx: PluginFrontendContext, s
     canvas.style.cursor = panDrag ? "grabbing" : state.tool === "hand" ? "grab" : "default";
     status.hidden = !preparing && !failure;
     status.setAttribute("role", failure ? "alert" : "status");
-    status.textContent = failure ?? (preparing ? "Preparing drawing sheet…" : "");
+    status.textContent = failure ?? (preparing ? tr("Preparing drawing sheet…", "正在准备画板…") : "");
     paper.hidden = !draft || preparing || !!failure;
   };
   const layout = (): boolean => {
@@ -315,7 +317,7 @@ export function mountSheet(container: HTMLElement, ctx: PluginFrontendContext, s
       sheets.create(state, { ...sheet, reference: content, palette });
     } catch (error) {
       if (!disposed && !signal.aborted) {
-        preparing = false; failure = `Could not prepare the drawing background. ${error instanceof Error ? error.message : ""} Close and reopen Draw to try again.`;
+        preparing = false; failure = tr("Could not prepare the drawing background. {detail} Close and reopen Draw to try again.", "无法准备画板背景。{detail}请关闭并重新打开画板重试。", { detail: error instanceof Error ? error.message : "" });
         render();
       }
     } finally { referenceMount?.dispose(); reference?.remove(); }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2Icon, MicIcon } from "lucide-react";
 import { useSettingsDialog } from "@/components/settings/settings-dialog";
 import { Hint } from "@/components/ui/hint";
+import { useI18n } from "@/components/i18n";
 import { deepgramListenUrl, type DictationLanguage } from "@/src/core";
 import { useDictationLanguage } from "@/components/dictation-preference";
 import { setDictationActive } from "@/components/dictation-state";
@@ -756,8 +757,30 @@ export function useDictation({ append, destination = "primary", disabled = false
  *   error     the wide button again, label swapped for the failure reason
  *             (full text in the tooltip), cleared on the next click.
  */
+export function translateDictationError(
+	error: string,
+	tr: (en: string, zh: string, params?: Record<string, string | number>) => string,
+	tError: (error: string) => string,
+): string {
+	if (error === DICTATION_KEYLESS) return tr(DICTATION_KEYLESS, "语音听写需要配置 Deepgram 密钥");
+	if (error === DICTATION_ACTIVE_ELSEWHERE) return tr(DICTATION_ACTIVE_ELSEWHERE, "其他位置正在使用语音听写");
+	if (error === "Dictation transcript could not be applied") return tr(error, "无法写入语音听写结果");
+	if (error === "Deepgram reconnect failed") return tr(error, "Deepgram 重连失败");
+	if (error === "Dictation language unavailable") return tr(error, "无法获取语音听写语言设置");
+	if (error === "Microphone permission denied") return tr(error, "麦克风权限被拒绝");
+	if (error === "mic unavailable") return tr(error, "麦克风不可用");
+	if (error === "token unavailable") return tr(error, "无法获取语音令牌");
+	const lost = /^Deepgram connection lost \((\d+)\)$/.exec(error);
+	if (lost) return tr("Deepgram connection lost ({code})", "Deepgram 连接已断开（{code}）", { code: lost[1]! });
+	const route = /^token route (\d+)$/.exec(error);
+	if (route) return tr("token route {status}", "语音令牌接口错误（{status}）", { status: route[1]! });
+	return tError(error);
+}
+
 export function DictationBar({ dictation, disabled = false }: { dictation: Dictation; disabled?: boolean }) {
+	const { tr, tError } = useI18n();
 	const { phase, error, levelRef, toggle, active, clearError, blocked } = dictation;
+	const errorLabel = error ? translateDictationError(error, tr, tError) : null;
 	const { open: openSettings } = useSettingsDialog();
 	/** The keyless click (zero-keys wave, owner dictation trio): the errored
 	 *  idle button deep-links Settings → Keys → the Deepgram row and clears
@@ -809,7 +832,7 @@ export function DictationBar({ dictation, disabled = false }: { dictation: Dicta
 		return (
 			<Hint
 				// The error line truncates in the button; its tooltip reveals it.
-				label={error ?? "Dictate"}
+				label={errorLabel ?? tr("Dictate", "语音听写")}
 				action={error ? undefined : "toggle-dictation"}
 				side="top"
 			>
@@ -824,12 +847,12 @@ export function DictationBar({ dictation, disabled = false }: { dictation: Dicta
 						}
 					}}
 					disabled={disabled || blocked}
-					aria-label={error ? `Dictation failed: ${error}` : "Start dictation"}
+					aria-label={errorLabel ? tr("Dictation failed: {error}", "语音听写失败：{error}", { error: errorLabel }) : tr("Start dictation", "开始语音听写")}
 					data-testid="dictation-toggle"
 					className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border/50 bg-card/50 text-xs text-muted-foreground/70 shadow-lg backdrop-blur transition-colors hover:border-border hover:text-muted-foreground"
 				>
 					<MicIcon className="size-3.5" />
-					<span className="max-w-full truncate">{error ?? "Dictate"}</span>
+					<span className="max-w-full truncate">{errorLabel ?? tr("Dictate", "语音听写")}</span>
 				</button>
 			</Hint>
 		);
@@ -837,17 +860,17 @@ export function DictationBar({ dictation, disabled = false }: { dictation: Dicta
 
 	return (
 		<div className="flex w-full min-w-0 items-center gap-2" data-testid="dictation-bar">
-			<Hint label="Stop dictation (Esc)" side="top">
+			<Hint label={tr("Stop dictation (Esc)", "停止语音听写 (Esc)")} side="top">
 				<button
 					type="button"
 					onClick={toggle}
 					disabled={phase === "stopping"}
-					aria-label="Stop dictation"
+					aria-label={tr("Stop dictation", "停止语音听写")}
 					data-testid="dictation-toggle"
 					className="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-destructive/10 px-2 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20"
 				>
 					{phase === "stopping" ? <Loader2Icon className="size-3.5 animate-spin" /> : <MicIcon className="size-3.5" />}
-					Stop
+					{tr("Stop", "停止")}
 				</button>
 			</Hint>
 			<span className="size-1.5 shrink-0 animate-pulse rounded-full bg-destructive" aria-hidden />

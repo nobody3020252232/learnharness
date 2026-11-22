@@ -38,6 +38,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { HostDialog } from "@/components/host-dialog";
+import { useI18n } from "@/components/i18n";
 import { useInteractionLayers } from "@/components/interaction-layers";
 import type React from "react";
 import { type ModelCatalogEntry, type ModelSlotName, type ModelsSettings, CUSTOM_PROVIDER } from "@/src/core";
@@ -58,10 +59,10 @@ import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 
 /** The pickers' slot identity — same roster language as the Agent
  *  section's slot rows. */
-const SLOT_META: Record<ModelSlotName, { label: string; roster: string }> = {
-	strong: { label: "Strong", roster: "Prober, teacher" },
-	cheap: { label: "Cheap", roster: "Researcher, demo builder, extractor, auditor" },
-	vision: { label: "Vision", roster: "Visual maker + PDF reader" },
+const SLOT_META: Record<ModelSlotName, { label: string; roster: string; rosterZh: string }> = {
+	strong: { label: "Strong", roster: "Prober, teacher", rosterZh: "探测与教学主模型" },
+	cheap: { label: "Cheap", roster: "Researcher, demo builder, extractor, auditor", rosterZh: "资料检索、交互演示构建、知识提取与审计" },
+	vision: { label: "Vision", roster: "Visual maker + PDF reader", rosterZh: "图解生成与 PDF 阅读" },
 };
 const SLOT_ORDER: readonly ModelSlotName[] = ["strong", "cheap", "vision"];
 
@@ -160,22 +161,23 @@ export function SetupKeysBody({
 	isCustom?: boolean;
 	onCustomSaved?: () => void;
 }) {
+	const { tr, tError } = useI18n();
 	return (
 		<div className="flex flex-col gap-3 px-6 py-5" data-testid="setup-stage-keys">
 			<p className="text-xs text-muted-foreground">
-				Choose your AI provider and paste its API key. You’ll pick your models next.
+				{tr("Choose your AI provider and paste its API key. You’ll pick your models next.", "选择你的 AI 模型提供商并粘贴 API 密钥，下一步将选择具体模型。")}
 			</p>
 			<div className="flex flex-col gap-2">
 				<div ref={menuAnchor} className="relative max-w-96">
 					<button
 						type="button"
-						aria-label="Provider"
+						aria-label={tr("Provider", "模型提供商")}
 						data-testid="setup-key-provider"
 						aria-expanded={menuOpen}
 						onClick={onToggleMenu}
 						className="flex h-7 w-full items-center gap-1 rounded-sm border border-border bg-background px-1.5 font-ui text-xs text-foreground transition-colors hover:border-muted-foreground/50"
 					>
-						<span className="min-w-0 flex-1 truncate text-left">{provider ? provider.label : "Pick a provider…"}</span>
+						<span className="min-w-0 flex-1 truncate text-left">{provider ? provider.label : tr("Pick a provider…", "选择模型提供商…")}</span>
 						<span aria-hidden className="text-muted-foreground">
 							▾
 						</span>
@@ -203,8 +205,8 @@ export function SetupKeysBody({
 								onKeyDown={(e) => {
 									if (e.key === "Enter" && value.trim()) onSave();
 								}}
-								placeholder="Paste key…"
-								aria-label={`${provider.label} key`}
+								placeholder={tr("Paste key…", "粘贴密钥…")}
+								aria-label={tr("{label} key", "{label} 密钥", { label: provider.label })}
 								data-testid="setup-key-input"
 								disabled={saving}
 								autoFocus
@@ -217,18 +219,18 @@ export function SetupKeysBody({
 								data-testid="setup-key-save"
 								className="shrink-0 rounded-sm border border-border bg-background px-3 py-1.5 font-ui text-xs text-foreground transition-colors hover:border-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-40"
 							>
-								{saving ? "Saving…" : "Save key"}
+								{saving ? tr("Saving…", "正在保存…") : tr("Save key", "保存密钥")}
 							</button>
 						</div>
 					</div>
 				))}
 				{error && (
 					<p role="alert" data-testid="setup-key-error" className="text-xs text-error">
-						{error}
+						{tError(error)}
 					</p>
 				)}
 			</div>
-			<div className="mt-2 border-t border-border/60 pt-4"><h3 className="mb-3 font-ui text-xs text-muted-foreground">Subscriptions</h3><SubscriptionConnections setup /></div>
+			<div className="mt-2 border-t border-border/60 pt-4"><h3 className="mb-3 font-ui text-xs text-muted-foreground">{tr("Subscriptions", "订阅账号")}</h3><SubscriptionConnections setup /></div>
 		</div>
 	);
 }
@@ -258,6 +260,7 @@ export function SetupDialog(props: SetupDialogProps) {
 }
 
 function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
+	const { tr, isZh, tSlot, tThinking, tError } = useI18n();
 	const controller = useInteractionLayers();
 	const { catalog, failed, refresh } = useModelCatalog();
 	const providerStageSeen = useRef(false);
@@ -378,7 +381,7 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 		setKeySaving(false);
 		if (!res || !res.ok) {
 			const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
-			setKeyError(res ? (body?.error ?? `Save failed (${res.status})`) : "Save failed. Check your connection and try again.");
+			setKeyError(res ? (body?.error ? tError(body.error) : tr("Save failed ({status})", "保存失败（{status}）", { status: res.status })) : tr("Save failed. Check your connection and try again.", "保存失败，请检查网络连接后重试。"));
 			return;
 		}
 		setKeyProvider(null);
@@ -407,7 +410,12 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 		}).catch(() => null);
 		if (!res || !res.ok) {
 			setSaving(false);
-			setError(res ? `Save failed: ${(await res.json().catch(() => ({}))).error ?? res.status}` : "Save failed. Check your connection and try again.");
+			if (!res) {
+				setError(tr("Save failed. Check your connection and try again.", "保存失败，请检查网络连接后重试。"));
+				return;
+			}
+			const detail = ((await res.json().catch(() => ({}))) as { error?: string }).error;
+			setError(tr("Save failed: {detail}", "保存失败：{detail}", { detail: detail ? tError(detail) : res.status }));
 			return;
 		}
 		notifySettingsSaved("models");
@@ -431,17 +439,17 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 		onSave={() => void saveKey()}
 	/>;
 
-	return <HostDialog open onClose={() => { onClose(); return "closed"; }} aria-label="Set up your models"
+	return <HostDialog open onClose={() => { onClose(); return "closed"; }} aria-label={tr("Set up your models", "配置你的模型")}
 		backdropProps={{ className: "fixed inset-0 z-50 flex items-center justify-center bg-background/80", "data-testid": "setup-backdrop" }}
 		frame={<div data-testid="setup-dialog"
 			className="settings-dialog-pop flex max-h-[85vh] w-[640px] max-w-[90vw] flex-col overflow-hidden rounded-md border border-border bg-card shadow-xl"
 			onClick={(e) => e.stopPropagation()} />}>
 				<header className="flex h-15 shrink-0 items-center gap-3 border-b border-border px-5">
-					<h2 className="font-title text-2xl tracking-tight">Set up your models</h2>
-					<Hint label="Close" binding="escape" side="left">
+					<h2 className="font-title text-2xl tracking-tight">{tr("Set up your models", "配置你的模型")}</h2>
+					<Hint label={tr("Close", "关闭")} binding="escape" side="left">
 <button
 						type="button"
-						aria-label="Close setup"
+						aria-label={tr("Close setup", "关闭模型配置")}
 						data-testid="setup-close"
 						onClick={onClose}
 						className="ml-auto text-muted-foreground transition-colors hover:text-foreground"
@@ -453,17 +461,17 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 
 				{failed && (
 					<p role="alert" data-testid="setup-catalog-error" className="px-6 py-3 text-sm text-foreground">
-						Model catalog could not be loaded. Check the connection and retry. <button type="button" data-testid="setup-retry" className="underline" onClick={refresh}>Retry</button>
+						{tr("Model catalog could not be loaded. Check the connection and retry.", "无法加载模型目录，请检查网络连接后重试。")} <button type="button" data-testid="setup-retry" className="underline" onClick={refresh}>{tr("Retry", "重试")}</button>
 					</p>
 				)}
 				{stage === "loading" ? (
-					!failed && <p data-testid="setup-stage-loading" role="status" className="px-6 py-5 text-xs text-muted-foreground">Loading models…</p>
+					!failed && <p data-testid="setup-stage-loading" role="status" className="px-6 py-5 text-xs text-muted-foreground">{tr("Loading models…", "正在加载模型…")}</p>
 				) : stage === "keys" ? (
 					<div className="flex flex-col px-6 py-5">{keysBody}</div>
 				) : (
 					<div className="flex flex-col gap-4 overflow-y-auto px-6 py-5" data-testid="setup-stage-pickers">
 						<p className="text-xs text-muted-foreground">
-							Pick the model for each tier. All three are required before chats can start.
+							{tr("Pick the model for each tier. All three are required before chats can start.", "为每个模型槽位选择对应模型。三项均配置完成后即可开始学习会话。")}
 						</p>
 						{SLOT_ORDER.map((slot) => {
 							const entry = picked[slot];
@@ -475,33 +483,34 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 							const slotCatalog = slot === "vision"
 								? available?.filter((m) => m.input.includes("image") || m.provider === CUSTOM_PROVIDER.id)
 								: available;
+							const slotLabel = tSlot(slot);
 							return (
 								<div key={slot} data-testid={`setup-slot-${slot}`} className="flex flex-col gap-1.5">
 									<span className="flex items-center gap-1.5">
-										<span className="font-ui text-sm text-foreground">{SLOT_META[slot].label}</span>
+										<span className="font-ui text-sm text-foreground">{slotLabel}</span>
 										{!catalog?.slots?.[slot]?.model && !picked[slot] && (
 											<span
 												data-testid={`setup-needed-${slot}`}
 												className="rounded-sm border border-border px-1 py-0.5 text-[10px] font-normal tracking-wide text-muted-foreground"
 											>
-												needed
+												{tr("needed", "待配置")}
 											</span>
 										)}
 									</span>
-									<span className="text-xs text-muted-foreground/70">{SLOT_META[slot].roster}</span>
+									<span className="text-xs text-muted-foreground/70">{tr(SLOT_META[slot].roster, SLOT_META[slot].rosterZh)}</span>
 									{slot !== "strong" && <><ChatGPTBackgroundAccess provider={entry?.provider} /><NativeSubscriptionBackgroundAccess provider={entry?.provider} /></>}
 									<div className="flex items-center gap-2">
 										<div className="relative flex-1">
-											<Hint label={entry ? `${entry.provider}:${entry.id}` : "Pick a model…"}>
+											<Hint label={entry ? `${entry.provider}:${entry.id}` : tr("Pick a model…", "选择模型…")}>
 											<button
 												type="button"
-												aria-label={`${SLOT_META[slot].label} model`}
+												aria-label={tr("{slot} model", "{slot}模型", { slot: slotLabel })}
 												data-testid={`setup-trigger-${slot}`}
 												aria-expanded={openMenu?.slot === slot && openMenu.kind === "model"}
 												onClick={() => setOpenMenu(openMenu?.slot === slot && openMenu.kind === "model" ? null : { slot, kind: "model" })}
 												className="flex h-7 min-w-40 w-full items-center gap-1 rounded-sm border border-border bg-background px-1.5 font-ui text-xs text-foreground transition-colors hover:border-muted-foreground/50"
 											>
-												<span className="min-w-0 flex-1 truncate">{entry ? prettyModel(entry.id) : "Pick a model…"}</span>
+												<span className="min-w-0 flex-1 truncate">{entry ? prettyModel(entry.id) : tr("Pick a model…", "选择模型…")}</span>
 												<span aria-hidden className="text-muted-foreground">
 													▾
 												</span>
@@ -543,7 +552,7 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 															}));
 															setOpenMenu(null);
 														}}
-														footer={slotCatalog && slotCatalog.length === 0 && slot === "vision" ? "No image-capable models. Add a provider key with access to a vision model." : undefined}
+														footer={slotCatalog && slotCatalog.length === 0 && slot === "vision" ? tr("No image-capable models. Add a provider key with access to a vision model.", "暂无支持图像的模型。请添加支持视觉多模态模型的提供商密钥。") : undefined}
 													/>
 												</MenuShell>
 											)}
@@ -553,7 +562,7 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 										<div className="relative">
 											<button
 												type="button"
-												aria-label={`${SLOT_META[slot].label} thinking`}
+												aria-label={tr("{slot} thinking", "{slot}推理强度", { slot: slotLabel })}
 												data-testid={`setup-thinking-${slot}`}
 												aria-expanded={openMenu?.slot === slot && openMenu.kind === "thinking"}
 												disabled={!entry}
@@ -561,7 +570,7 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 												className="flex h-7 w-24 items-center gap-1 rounded-sm border border-border bg-background px-1.5 font-ui text-xs text-foreground transition-colors hover:border-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-40"
 											>
 												<span className="min-w-0 flex-1 truncate text-left">
-													{entry ? (level ? THINKING_LABEL[level] ?? level : "…") : "—"}
+													{entry ? (level ? (isZh ? tThinking(level) : (THINKING_LABEL[level] ?? level)) : "…") : "—"}
 												</span>
 												<span aria-hidden className="text-muted-foreground">
 													▾
@@ -600,7 +609,7 @@ function OpenSetupDialog({ onClose, onDone }: SetupDialogProps) {
 								onClick={() => void save()}
 								className="rounded-sm border border-border bg-background px-3 py-1.5 font-ui text-xs text-foreground transition-colors hover:border-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-40"
 							>
-								{saving ? "Saving…" : "Save models"}
+								{saving ? tr("Saving…", "正在保存…") : tr("Save models", "保存模型配置")}
 							</button>
 							{error && <p className="text-xs text-error">{error}</p>}
 						</div>

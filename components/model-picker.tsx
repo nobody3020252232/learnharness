@@ -15,6 +15,7 @@ import { notifySettingsSaved, useSettingsSaved } from "@/components/settings-sig
 import { useModelCatalog } from "@/components/model-catalog";
 export { useModelCatalog } from "@/components/model-catalog";
 import { defaultOrderLevel, populateLevel, THINKING_LABEL } from "@/components/thinking-default";
+import { useI18n } from "@/components/i18n";
 
 /** provider:id → known contextWindow over the cached catalog, mirroring
  * the server's catalogContextLimits join. CLI aliases have no global
@@ -41,6 +42,7 @@ export function catalogLimits(catalog: Pick<ModelCatalogResponse, "models">): Ma
  * no-factory-fallback language: the UI never presents a default model).
  */
 export function ModelControl({ chatId, onModelChange }: { chatId?: string; onModelChange?: (model: string | undefined) => void }) {
+	const { tr, tThinking, tError } = useI18n();
 	const { catalog, refresh } = useModelCatalog();
 	const [models, setModels] = useState<ModelsSettings | undefined>();
 	// A successful read with no settings is a legacy session; undefined
@@ -153,7 +155,7 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 				});
 				if (!res.ok) {
 					const body = (await res.json().catch(() => ({}))) as { error?: string };
-					setError(body.error ?? `settings rejected (${res.status})`);
+					setError(body.error ?? tr("settings rejected ({status})", "设置被拒绝（{status}）", { status: res.status }));
 					return;
 				}
 				// Server truth, never the request body (fix wave): a pick
@@ -166,10 +168,10 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 				setOpen(null);
 				notifySettingsSaved("models");
 			} catch {
-				setError("Could not reach the server — try again.");
+				setError(tr("Could not reach the server — try again.", "无法连接到服务器 — 请重试。"));
 			}
 		},
-		[],
+		[tr],
 	);
 
 	// The session write seam (chat mode): PUT the per-chat settings route
@@ -188,17 +190,17 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 				});
 				if (!res.ok) {
 					const body = (await res.json().catch(() => ({}))) as { error?: string };
-					setError(body.error ?? `settings rejected (${res.status})`);
+					setError(body.error ?? tr("settings rejected ({status})", "设置被拒绝（{status}）", { status: res.status }));
 					return;
 				}
 				const stored = (await res.json().catch(() => null)) as { settings?: ChatSettings } | null;
 				setSession({ settings: stored?.settings ?? next });
 				setOpen(null);
 			} catch {
-				setError("Could not reach the server — try again.");
+				setError(tr("Could not reach the server — try again.", "无法连接到服务器 — 请重试。"));
 			}
 		},
-		[chatId],
+		[chatId, tr],
 	);
 
 	// One apply seam over both write paths: a pick names provider + id +
@@ -273,7 +275,7 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 	return (
 		<div ref={containerRef} className="relative flex items-center gap-1.5" data-testid="model-control">
 			<Hint
-				label={effectiveId ? `${effectiveProvider ? `${effectiveProvider}:` : ""}${effectiveId}` : "Model selector"}
+				label={effectiveId ? `${effectiveProvider ? `${effectiveProvider}:` : ""}${effectiveId}` : tr("Model selector", "选择模型")}
 				action="open-model-picker"
 				side="bottom"
 			>
@@ -287,7 +289,7 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 				// "Thinking" + its real shortcut via the registry (owner interlude
 				// 2026-09-25): ⇧⇥ cycles the level, so "Thinking (⇧⇥)" —
 				// rebind-live like every Hint suffix.
-				label="Thinking"
+				label={tr("Thinking", "推理强度")}
 				action="cycle-thinking"
 				side="bottom"
 			>
@@ -298,7 +300,7 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 						openMenu("thinking");
 					}}
 					aria-expanded={open === "thinking"}
-				>{effectiveLevel === undefined ? "—" : (THINKING_LABEL[effectiveLevel] ?? effectiveLevel)}</ModelPickerPill>
+				>{effectiveLevel === undefined ? "—" : tThinking(THINKING_LABEL[effectiveLevel] ?? effectiveLevel)}</ModelPickerPill>
 			</Hint>
 
 			{/* The shared dropdown body (extracted 2026-09-20): the agent
@@ -311,7 +313,7 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 					preferredSide="up"
 					menuClass="flex w-[22rem] flex-col rounded-xl border bg-card p-2 text-xs shadow-xl"
 				>
-					{error && <div className="mb-1.5 text-destructive">{error}</div>}
+					{error && <div className="mb-1.5 text-destructive">{tError(error)}</div>}
 					<ModelMenuList
 						models={catalog?.models}
 						effectiveId={effectiveId}
@@ -319,10 +321,10 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 						onPick={pickModel}
 						footer={
 							catalog && catalog.models.length === 0
-								? "No models — add a provider key in Keys"
+								? tr("No models — add a provider key in Keys", "暂无可用模型 — 请在模型提供商中添加密钥")
 								: chatId
-									? "This session's model"
-									: "Strong tier — the default for new sessions"
+									? tr("This session's model", "当前会话使用的模型")
+									: tr("Strong tier — the default for new sessions", "强推理槽位 — 新建会话的默认模型")
 						}
 					/>
 				</MenuShell>
@@ -339,10 +341,14 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 						levels={catalog ? levels : []}
 						effectiveLevel={effectiveLevel}
 						onPick={(level) => apply(effectiveProvider ?? "", effectiveId ?? "", level as ThinkingLevel)}
-						empty={catalog ? (effectiveId ? `${prettyModel(effectiveId)} has no thinking levels.` : "Pick a model first.") : "Loading…"}
-						footer="Levels this model actually supports"
+						empty={catalog
+							? (effectiveId
+								? tr("{model} has no thinking levels.", "{model} 不支持推理强度设置。", { model: prettyModel(effectiveId) })
+								: tr("Pick a model first.", "请先选择一个模型。"))
+							: tr("Loading…", "加载中…")}
+						footer={tr("Levels this model actually supports", "此模型实际支持的推理强度")}
 					/>
-					{error && <div className="mt-1 text-destructive">{error}</div>}
+					{error && <div className="mt-1 text-destructive">{tError(error)}</div>}
 				</MenuShell>
 			)}
 		</div>

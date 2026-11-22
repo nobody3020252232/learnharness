@@ -12,6 +12,7 @@ import { isInputShortcutScopeEligible } from "@/components/plugin-input-focus";
 import { prettyModel } from "@/components/usage-format";
 import { THINKING_LABEL } from "@/components/thinking-default";
 import { claimPluginInputFocus } from "@/components/plugin-dictation";
+import { useI18n } from "@/components/i18n";
 
 export type PickerCommand = { invoke(): void };
 type Extra = { onError?: (error: unknown) => void; commandRef?: RefObject<PickerCommand | null> };
@@ -37,6 +38,7 @@ export function usePluginMenuDismiss(open: boolean, root: RefObject<HTMLElement 
 }
 
 export function PluginModelPicker({ value, onChange, disabled, onError, commandRef }: PluginModelPickerProps & Extra) {
+	const { tr, tError } = useI18n();
 	const { catalog, refresh } = useModelCatalog();
 	const root = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState(false);
@@ -51,11 +53,11 @@ export function PluginModelPicker({ value, onChange, disabled, onError, commandR
 		return () => { off?.(); if (commandRef) commandRef.current = null; };
 	});
 	return <div ref={root} className="relative inline-flex" data-plugin-model-picker="">
-		<ModelPickerPill disabled={disabled} aria-label="Model selector" aria-expanded={open} onClick={() => { if (open) close(); else invoke(); }}>
+		<ModelPickerPill disabled={disabled} aria-label={tr("Model selector", "选择模型")} aria-expanded={open} onClick={() => { if (open) close(); else invoke(); }}>
 			{value ? prettyModel(value.id) : "—"}
 		</ModelPickerPill>
 		{open && !disabled && <MenuShell anchorRef={root} preferredSide="up" testid="plugin-model-menu" onClose={() => { close(); return "closed"; }} menuClass="flex w-[22rem] flex-col rounded-xl border bg-card p-2 text-xs shadow-xl">
-			{error && <div role="alert" className="text-destructive">{error}</div>}
+			{error && <div role="alert" className="text-destructive">{tError(error)}</div>}
 			<ModelMenuList models={catalog?.models} effectiveId={value?.id} effectiveProvider={value?.provider} onPick={(model) => {
 				setError(undefined);
 				Promise.resolve().then(() => onChange({ provider: model.provider, id: model.id })).then(close).catch((error: unknown) => {
@@ -67,6 +69,7 @@ export function PluginModelPicker({ value, onChange, disabled, onError, commandR
 }
 
 export function PluginThinkingPicker({ model, value, onChange, disabled, onError, commandRef }: PluginThinkingPickerProps & Extra) {
+	const { tr, tError, tThinking, isZh } = useI18n();
 	const { catalog } = useModelCatalog();
 	const levels = catalog?.models.find((entry) => entry.id === model?.id && entry.provider === model?.provider)?.supportedLevels ?? [];
 	const root = useRef<HTMLDivElement>(null);
@@ -92,12 +95,12 @@ export function PluginThinkingPicker({ model, value, onChange, disabled, onError
 		return () => { off?.(); if (commandRef) commandRef.current = null; };
 	});
 	return <div ref={root} className="relative inline-flex" data-plugin-thinking-picker="">
-		<ModelPickerPill disabled={disabled || !model} aria-label="Thinking" aria-expanded={open} onClick={() => setOpen(!open)}>
-			{value === undefined ? "—" : THINKING_LABEL[value] ?? value}
+		<ModelPickerPill disabled={disabled || !model} aria-label={tr("Thinking", "推理强度")} aria-expanded={open} onClick={() => setOpen(!open)}>
+			{value === undefined ? "—" : isZh ? tThinking(value) : (THINKING_LABEL[value] ?? value)}
 		</ModelPickerPill>
 		{open && !disabled && <MenuShell anchorRef={root} preferredSide="up" testid="plugin-thinking-menu" onClose={() => { close(); return "closed"; }} menuClass="flex w-44 flex-col gap-0.5 rounded-xl border bg-card p-2 text-xs shadow-xl">
-			<ThinkingMenuList levels={levels} effectiveLevel={value} onPick={(level) => pick(level as ThinkingLevel)} empty={catalog ? "No thinking levels." : "Loading…"} />
-			{error && <div role="alert" className="text-destructive">{error}</div>}
+			<ThinkingMenuList levels={levels} effectiveLevel={value} onPick={(level) => pick(level as ThinkingLevel)} empty={catalog ? tr("No thinking levels.", "无可用推理强度。") : tr("Loading…", "加载中…")} />
+			{error && <div role="alert" className="text-destructive">{tError(error)}</div>}
 		</MenuShell>}
 	</div>;
 }

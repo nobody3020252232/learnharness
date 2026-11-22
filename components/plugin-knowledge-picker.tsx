@@ -6,6 +6,7 @@ import type { GraphSnapshot, PluginKnowledgePickerProps } from "@/src/core";
 import { ChainTableOverlay } from "@/components/chain-table";
 import { NodePickerControl } from "@/components/composer-actions";
 import { HostDialog } from "@/components/host-dialog";
+import { useI18n } from "@/components/i18n";
 import { InteractionLayerOwner, useInteractionLayer, useInteractionLayers, useOptionalInteractionLayers, type InteractionLayer, type OpeningLease } from "@/components/interaction-layers";
 import { HostContentRootContext, HostRouteLifetimeContext, type HostRouteLifetime } from "./host-content-root";
 
@@ -23,13 +24,14 @@ interface PickerOrigin {
 function PanePicker({ origin, openingLease, onClose, children }: {
 	origin: PickerOrigin; openingLease: OpeningLease; onClose: () => "closed"; children: ReactNode;
 }) {
+	const { tr } = useI18n();
 	const controller = useInteractionLayers();
 	const root = useRef<HTMLDivElement>(null);
 	const popup = useRef<HTMLDivElement>(null);
 	const entered = useRef(false);
 	const focusInitial = useCallback(() => {
 		if (controller.getTopLayer()?.id !== PICKER_LAYER) return;
-		const search = root.current?.querySelector<HTMLElement>('input[aria-label="Search nodes"]');
+		const search = root.current?.querySelector<HTMLElement>('input[data-testid="chain-table-search"], input[aria-label="Search nodes"]');
 		if (search && controller.isElementEligible(search)) search.focus({ preventScroll: true });
 	}, [controller]);
 	// Snapshot authority before registration cleanup; covered/expired views do
@@ -51,7 +53,7 @@ function PanePicker({ origin, openingLease, onClose, children }: {
 		entered.current = true; focusInitial();
 	}, [layer.isTop, focusInitial]);
 	return createPortal(<InteractionLayerOwner.Provider value={layer.id}>
-		<div ref={root} role="region" aria-label="Pick nodes" data-plugin-knowledge-picker-pane=""
+		<div ref={root} role="region" aria-label={tr("Pick nodes", "选择知识点")} data-plugin-knowledge-picker-pane=""
 			className="absolute inset-0" style={{ zIndex: 100 + layer.order }}>
 			{children}
 			<div ref={popup} data-interaction-popup-host={layer.id}
@@ -65,6 +67,7 @@ export function PluginKnowledgePicker({ value, onChange, disabled, signal, onErr
 	signal: AbortSignal;
 	onError: (error: unknown) => void;
 }) {
+	const { tr } = useI18n();
 	const controller = useOptionalInteractionLayers();
 	const pane = useContext(HostContentRootContext);
 	const route = useContext(HostRouteLifetimeContext);
@@ -166,7 +169,7 @@ export function PluginKnowledgePicker({ value, onChange, disabled, signal, onErr
 		void (async () => {
 			try {
 				const response = await fetch("/api/graph", { signal: request.signal });
-				if (!response.ok) throw new Error("Could not read knowledge graph.");
+				if (!response.ok) throw new Error(tr("Could not read knowledge graph.", "无法读取知识图谱。"));
 				const graph = await response.json() as GraphSnapshot;
 				if (!alive.current || signal.aborted || request.signal.aborted || pending.current !== request || latest.current.disabled || !owner.owns()) return;
 				graphCache.current = graph; setSnapshot(graph); promote();
@@ -190,7 +193,7 @@ export function PluginKnowledgePicker({ value, onChange, disabled, signal, onErr
 		<NodePickerControl count={new Set(value).size} onOpen={show} onClear={() => change([])} disabled={disabled} triggerRef={trigger} />
 		{visible && source && (source.modal
 			? <HostDialog open layerId={PICKER_LAYER} ownerId={source.owner?.id ?? null} openingLease={lease.current!}
-				onClose={close} aria-label="Pick nodes" frame={<div className="absolute inset-0" />}>{table}</HostDialog>
+				onClose={close} aria-label={tr("Pick nodes", "选择知识点")} frame={<div className="absolute inset-0" />}>{table}</HostDialog>
 			: <PanePicker origin={source} openingLease={lease.current!} onClose={close}>{table}</PanePicker>)}
 	</>;
 }

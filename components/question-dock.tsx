@@ -13,6 +13,7 @@ import { MalformedQuestion } from "@/components/malformed-question";
 import { ToolContentResponse } from "@/components/ai-elements/message";
 import { QuestionPreview } from "@/components/question-preview";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n";
 import {
 	buildAnswer,
 	toClientQuestion,
@@ -29,6 +30,7 @@ import {
 	parseExplainInput,
 	toggleOption,
 	toggleOther,
+	translateText,
 	type AnswerRequest,
 	type AskToolInput,
 	type DockSelection,
@@ -40,6 +42,7 @@ import {
 	type QuizToolInput,
 	type SelectMode,
 	type Phase3,
+	type UiLocale,
 } from "@/src/core";
 import type { PrepareBuiltinSubmission } from "./plugin-submission-adapters";
 import { CONFIDENCE_COLORS, confidenceRailStyle } from "@/components/confidence-rail";
@@ -84,12 +87,12 @@ const QC_CONFIDENCE_TRACK = "relative h-4 min-w-0 flex-1";
 const QC_CONFIDENCE_VALUE = "w-[4ch] shrink-0 text-center font-mono text-sm tabular-nums";
 
 /** The question card's label: the tool's own name for probe-phase calls. */
-export function questionCardLabel(tool: string | undefined, kind: string, questionType: string | undefined): string {
-	if (tool === "probe") return "Probe";
-	if (tool === "recall") return "Recall";
-	if (kind === "quiz") return questionType === "predict" ? "Prediction" : "Check";
-	if (kind === "explain") return "Explain";
-	return "Question";
+export function questionCardLabel(tool: string | undefined, kind: string, questionType: string | undefined, locale: UiLocale = "en"): string {
+	if (tool === "probe") return translateText(locale, "Probe", "探测");
+	if (tool === "recall") return translateText(locale, "Recall", "回忆");
+	if (kind === "quiz") return questionType === "predict" ? translateText(locale, "Prediction", "预测") : translateText(locale, "Check", "检测");
+	if (kind === "explain") return translateText(locale, "Explain", "解释");
+	return translateText(locale, "Question", "提问");
 }
 
 /** What an answered card knows of the question it answered. Rendered
@@ -112,7 +115,7 @@ export interface QuestionCardContent {
  * layout probe: the answered card's layout is then exactly the one the
  * question card had (owner: "exactly when the question card would").
  */
-export function questionCardStandIn(doc: Document, c: QuestionCardContent): { question: HTMLElement; options: HTMLElement; confidence: HTMLElement | null } {
+export function questionCardStandIn(doc: Document, c: QuestionCardContent, locale: UiLocale = "en"): { question: HTMLElement; options: HTMLElement; confidence: HTMLElement | null } {
 	const el = (tag: string, className: string, ...children: (Node | string)[]) => {
 		const node = doc.createElement(tag);
 		node.className = className;
@@ -121,7 +124,7 @@ export function questionCardStandIn(doc: Document, c: QuestionCardContent): { qu
 	};
 	const contents = (live: HTMLElement) => [...live.childNodes].map((n) => (n instanceof HTMLElement ? cloneWithImageSizes(n) : n.cloneNode(true)));
 	const question = el("div", "",
-		el("div", QC_LABEL, c.label + (c.multiSelect ? " · select all that apply" : "")),
+		el("div", QC_LABEL, c.label + (c.multiSelect ? translateText(locale, " · select all that apply", " · 多选") : "")),
 		el("div", QC_QUESTION, ...contents(c.question)),
 	);
 	if (c.context) question.append(el("div", QC_CONTEXT, ...contents(c.context)));
@@ -133,18 +136,18 @@ export function questionCardStandIn(doc: Document, c: QuestionCardContent): { qu
 		if (letter) icon.append(el("span", QC_OPTION_LETTER, letter));
 		list.append(el("button", QC_OPTION_ROW, icon, el("span", "", ...contents(option))));
 	}
-	if (c.kind === "quiz") list.append(el("button", cn(QC_OPTION_ROW, "border-dashed"), mark(true), el("span", "", "I don't know")));
+	if (c.kind === "quiz") list.append(el("button", cn(QC_OPTION_ROW, "border-dashed"), mark(true), el("span", "", translateText(locale, "I don't know", "我不知道"))));
 	if (c.kind === "ask") {
 		const input = el("div", cn(pathInputClassName(true), QC_OTHER_INPUT));
 		input.dataset.empty = "true";
-		input.dataset.placeholder = OTHER_PLACEHOLDER;
+		input.dataset.placeholder = translateText(locale, OTHER_PLACEHOLDER, "输入你自己的回答…");
 		list.append(el("div", cn(QC_OPTION_ROW, "border-dashed"), mark(!c.multiSelect), input));
 	}
 	const options = el("div", "", list);
 	const confidence = c.kind === "quiz"
 		? el("div", CONFIDENCE_ROW_PAD,
 			el("div", QC_CONFIDENCE_ROW,
-				el("span", QC_CONFIDENCE_LABEL, "Confidence"),
+				el("span", QC_CONFIDENCE_LABEL, translateText(locale, "Confidence", "掌握信心")),
 				el("div", QC_CONFIDENCE_TRACK),
 				el("span", QC_CONFIDENCE_VALUE, "50%")))
 		: null;
@@ -244,6 +247,7 @@ export function QuestionDock({
 	layoutRequest,
 	onLayout,
 }: QuestionDockProps) {
+	const { tr } = useI18n();
 	// The probe-phase names (owner, 2026-10-09) canonicalize onto their
 	// teach twins for every dock concern — parse dispatch, labels, kinds:
 	// the probe quiz ("probe") is quiz-shaped, the probe free-recall
@@ -253,7 +257,7 @@ export function QuestionDock({
 	// The chip's display name carries the tool's OWN name (owner
 	// 2026-10-09): probe-phase questions label Probe/Recall in the
 	// composer; teach tools keep the standing labels.
-	const toolLabel = toolName === "probe" ? "Probe" : toolName === "recall" ? "Recall" : undefined;
+	const toolLabel = toolName === "probe" ? tr("Probe", "探测") : toolName === "recall" ? tr("Recall", "回忆") : undefined;
 	// Parse, don't cast (src/core/tool-parts.ts): the model authored this
 	// input, and only the schema the tool declared vouches for its shape.
 	// The dock mounts on input-available parts (already validated at the
@@ -277,7 +281,7 @@ export function QuestionDock({
 					label={
 						(canonical === "quiz" || canonical === "explain") &&
 						normalizeQuizType((parsed as { type?: unknown }).type) === "predict"
-							? "Prediction"
+							? tr("Prediction", "预测")
 							: undefined
 					}
 				/>
@@ -332,6 +336,7 @@ export function QuestionDockBar({
 	 *  label Probe/Recall — the phase boundary visible in the composer. */
 	toolLabel?: string;
 }) {
+	const { tr } = useI18n();
 	if (variant === "reveal") {
 		return (
 			<button
@@ -344,13 +349,13 @@ export function QuestionDockBar({
 					<PlayIcon className="size-3.5" />
 				</span>
 				<span className="min-w-0 flex-1">
-					<span className="block text-sm font-medium">Check your understanding</span>
+					<span className="block text-sm font-medium">{tr("Check your understanding", "检验你的理解")}</span>
 					<span className="block text-xs text-muted-foreground">
 						<QuestionPreview>{question}</QuestionPreview>
 					</span>
 				</span>
 				<span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
-					Open <ChevronRightIcon className="size-3.5" />
+					{tr("Open", "展开")} <ChevronRightIcon className="size-3.5" />
 				</span>
 			</button>
 		);
@@ -365,13 +370,13 @@ export function QuestionDockBar({
 			<span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 				{label ??
 							toolLabel ??
-							(toolName === "quiz" ? "Check" : toolName === "explain" ? "Explain" : "Question")}
+							(toolName === "quiz" ? tr("Check", "检测") : toolName === "explain" ? tr("Explain", "解释") : tr("Question", "提问"))}
 			</span>
 			<span className="min-w-0 flex-1 text-muted-foreground">
 				<QuestionPreview>{question}</QuestionPreview>
 			</span>
 			<span className="flex shrink-0 items-center gap-1 text-xs font-medium">
-				Answer <ArrowDownIcon className="size-3.5" />
+				{tr("Answer", "作答")} <ArrowDownIcon className="size-3.5" />
 			</span>
 		</button>
 	);
@@ -398,6 +403,7 @@ function QuestionDockForm({
 	layoutRequest,
 	onLayout,
 }: Omit<QuestionDockProps, "expanded" | "onExpand" | "reveal">) {
+	const { tr, locale } = useI18n();
 	const kind = toolQuestionKind(toolName);
 	const controller = useOptionalInteractionLayers();
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -815,7 +821,7 @@ function QuestionDockForm({
 							sel.dontKnow ? "text-muted-foreground/50" : "text-muted-foreground",
 						)}
 					>
-						Confidence
+						{tr("Confidence", "掌握信心")}
 					</span>
 					<div
 						className={cn(QC_CONFIDENCE_TRACK, sel.dontKnow && "opacity-40")}
@@ -844,9 +850,9 @@ function QuestionDockForm({
 							step={1}
 							value={CONFIDENCE_STOPS[confIdx]}
 							disabled={sel.dontKnow}
-							aria-label="Confidence — the probability your selected answer is correct"
-							aria-valuetext={`${CONFIDENCE_STOPS[confIdx]} percent`}
-							title="The probability your selected answer is correct — 50% is a coin flip. Adjust with ←/→."
+							aria-label={tr("Confidence — the probability your selected answer is correct", "掌握信心 — 你认为所选答案正确的把握")}
+							aria-valuetext={tr("{n} percent", "百分之 {n}", { n: CONFIDENCE_STOPS[confIdx]! })}
+							title={tr("The probability your selected answer is correct — 50% is a coin flip. Adjust with ←/→.", "你认为所选答案正确的概率 — 50% 相当于抛硬币。可用 ←/→ 键调节。")}
 							data-testid="confidence-slider"
 							onChange={(e) => {
 								// Snap to the nearest stop; the rendered VALUE is the stop's own
@@ -894,8 +900,8 @@ function QuestionDockForm({
 	const questionPart = (
 		<div ref={questionPartRef} data-question-part="">
 			<div className={QC_LABEL}>
-				{questionCardLabel(toolName, kind, qd.questionType)}
-				{qd.mode === "multi-select" && " · select all that apply"}
+				{questionCardLabel(toolName, kind, qd.questionType, locale)}
+				{qd.mode === "multi-select" && tr(" · select all that apply", " · 多选")}
 			</div>
 			<div className={QC_QUESTION}>
 				<ToolContentResponse>{qd.question}</ToolContentResponse>
@@ -989,7 +995,7 @@ function QuestionDockForm({
 						>
 							{sel.dontKnow && <span className="size-1.5 rounded-full bg-current" />}
 						</span>
-						<span>I don't know</span>
+						<span>{tr("I don't know", "我不知道")}</span>
 					</button>
 				)}
 
@@ -1058,7 +1064,7 @@ function QuestionDockForm({
 										submit();
 									}
 							}}
-							placeholder={OTHER_PLACEHOLDER}
+							placeholder={tr(OTHER_PLACEHOLDER, "输入你自己的回答…")}
 							className={QC_OTHER_INPUT}
 							onClick={(e) => e.stopPropagation()}
 						/>
@@ -1125,7 +1131,7 @@ function QuestionDockForm({
 					className="rounded-[10px] border border-border/70 bg-background/60 transition-colors focus-within:border-primary/50"
 				>
 					<div className="px-2.5 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-						{qd.mode === "text" ? "Your answer" : "YOUR THINKING"}
+						{qd.mode === "text" ? tr("Your answer", "你的回答") : tr("YOUR THINKING", "你的思考")}
 					</div>
 					{qd.mode === "text" ? (
 						<PathInput
@@ -1153,7 +1159,7 @@ function QuestionDockForm({
 									submit();
 								}
 							}}
-							placeholder="Type your answer…"
+							placeholder={tr("Type your answer…", "输入你的回答…")}
 							className="field-sizing-content lh-input max-h-48 min-h-10 w-full resize-none bg-transparent px-2.5 py-2 outline-none placeholder:text-muted-foreground"
 						/>
 					) : (
@@ -1184,7 +1190,7 @@ function QuestionDockForm({
 									submit();
 								}
 							}}
-							placeholder="Why this answer? Whatever comes to mind."
+							placeholder={tr("Why this answer? Whatever comes to mind.", "为什么选这个答案？想到什么都可以写下来。")}
 							className={cn(
 								"field-sizing-content lh-input max-h-48 w-full resize-none bg-transparent px-2.5 py-2 outline-none placeholder:text-muted-foreground/70",
 								// Phase-scaled prominence: teaching invites depth,
@@ -1195,14 +1201,14 @@ function QuestionDockForm({
 					)}
 					<div className="flex items-center justify-between gap-2 p-1">
 						<span aria-hidden className="pl-1.5 text-xs text-muted-foreground">
-								{compactionRunning ? "compacting session…" : "↵ submits · ⇧↵ newline"}
+								{compactionRunning ? tr("compacting session…", "正在压缩会话…") : tr("↵ submits · ⇧↵ newline", "↵ 提交 · ⇧↵ 换行")}
 						</span>
 						<Button
 							type="submit"
 							disabled={!canSubmit || compactionRunning || preparing}
 							className="ml-auto h-9 rounded-[6px] px-3.5 text-sm font-medium"
 						>
-							Submit answer
+							{tr("Submit answer", "提交回答")}
 						</Button>
 					</div>
 				</div>

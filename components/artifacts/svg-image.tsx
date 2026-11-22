@@ -1,3 +1,6 @@
+"use client";
+
+import { useI18n } from "@/components/i18n";
 import { svgImageSource } from "../../lib/svg-image-source";
 
 // Preserve the component module's existing public export.
@@ -14,7 +17,8 @@ export function SvgImage({
 	className?: string;
 	width?: number;
 }) {
+	const { tr } = useI18n();
 	// The source is already an in-memory vector image; no Next image optimization.
 	// eslint-disable-next-line @next/next/no-img-element
-	return <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgImageSource(svg))}`} alt="Figure" className={className} width={width} draggable={false} />;
+	return <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgImageSource(svg))}`} alt={tr("Figure", "图解")} className={className} width={width} draggable={false} />;
 }

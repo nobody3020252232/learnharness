@@ -13,7 +13,7 @@
 
 import path from "node:path";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { isHexColor, type ChatSettings } from "../core";
+import { isHexColor, isUiLocale, type ChatSettings } from "../core";
 import { COLOR_OVERRIDE_KEYS, isThemeId, type AppearanceColorOverrides, type ColorOverrideKey } from "../core/themes.ts";
 import type {
 	AgentSettings,
@@ -245,6 +245,10 @@ export function parseAppearanceSettingsBody(body: unknown): SettingsBodyResult<A
 	const raw = asRecord(body);
 	if (!raw) return { ok: false, error: "Invalid JSON body" };
 	const settings: AppearanceSettings = {};
+	if (raw.locale !== undefined) {
+		if (!isUiLocale(raw.locale)) return { ok: false, error: 'locale must be "zh-CN" or "en"' };
+		settings.locale = raw.locale;
+	}
 	if (raw.theme !== undefined) {
 		if (!isThemeId(raw.theme)) return { ok: false, error: "theme must be a theme id (lowercase slug)" };
 		settings.theme = raw.theme;

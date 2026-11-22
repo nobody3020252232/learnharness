@@ -1,3 +1,5 @@
+import { tr } from "./i18n.ts";
+
 export const FAMILIES = ["chemicalStructures", "musicalNotation", "technicalDiagrams"] as const;
 export type Family = typeof FAMILIES[number];
 export type Language = "smiles" | "abc" | "tikz";
@@ -60,10 +62,10 @@ export function parseChange(value: unknown): { family: Family; enabled: boolean 
 }
 
 export function checkSource(language: Language, source: string): void {
-  if (new TextEncoder().encode(source).byteLength > SOURCE_LIMITS[language]) throw new Error(`${language} source exceeds the ${SOURCE_LIMITS[language] / 1024} KiB limit.`);
-  if (!source.trim()) throw new Error(`Empty ${language} source.`);
+  if (new TextEncoder().encode(source).byteLength > SOURCE_LIMITS[language]) throw new Error(tr("{language} source exceeds the {limit} KiB limit.", "{language} 源码超出 {limit} KiB 限制。", { language, limit: SOURCE_LIMITS[language] / 1024 }));
+  if (!source.trim()) throw new Error(tr("Empty {language} source.", "{language} 源码为空。", { language }));
 }
 
 export function checkSvgSize(svg: string): void {
-  if (new TextEncoder().encode(svg).byteLength > SVG_LIMIT) throw new Error("Rendered SVG exceeds the 2 MiB limit.");
+  if (new TextEncoder().encode(svg).byteLength > SVG_LIMIT) throw new Error(tr("Rendered SVG exceeds the 2 MiB limit.", "渲染后的 SVG 超出 2 MiB 限制。"));
 }

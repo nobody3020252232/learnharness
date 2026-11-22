@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import { HostMarkdown } from "@/components/host-markdown";
+import { useI18n } from "@/components/i18n";
 import { cn } from "@/lib/utils";
 
 export function PromptText({ text, preview, fieldRef, onChange, busy }: {
@@ -11,6 +12,7 @@ export function PromptText({ text, preview, fieldRef, onChange, busy }: {
 	onChange?: (text: string) => void;
 	busy?: boolean;
 }) {
+	const { tr } = useI18n();
 	const gutter = useRef<HTMLDivElement>(null);
 	const lines = text.split(/\r\n|\r|\n/);
 	const wrapping = "whitespace-pre-wrap [overflow-wrap:anywhere]";
@@ -46,7 +48,7 @@ export function PromptText({ text, preview, fieldRef, onChange, busy }: {
 				</div>
 				<textarea
 					ref={fieldRef}
-					aria-label={onChange ? "Override Markdown" : "Default Markdown"}
+					aria-label={onChange ? tr("Override Markdown", "自定义覆盖 Markdown") : tr("Default Markdown", "默认 Markdown")}
 					value={text}
 					readOnly={!onChange || busy}
 					spellCheck={false}
@@ -57,7 +59,7 @@ export function PromptText({ text, preview, fieldRef, onChange, busy }: {
 				/>
 			</div>
 		</div>
-		{preview && <div className="h-full overflow-auto p-4" tabIndex={0} aria-label="Rendered Markdown">
+		{preview && <div className="h-full overflow-auto p-4" tabIndex={0} aria-label={tr("Rendered Markdown", "Markdown 渲染预览")}>
 			<HostMarkdown text={text} />
 		</div>}
 	</div>;

@@ -2,6 +2,7 @@
 
 import { ChevronRightIcon, ClipboardCheckIcon } from "lucide-react";
 import { ToolContentResponse } from "@/components/ai-elements/message";
+import { useI18n } from "@/components/i18n";
 import { parseProbeDoneInput, type ProbeDoneResult } from "@/src/core";
 
 /**
@@ -24,6 +25,7 @@ import { parseProbeDoneInput, type ProbeDoneResult } from "@/src/core";
  * Refusals, malformed calls and the writing fallback remain visible/plain.
  */
 export function ProbeDoneCard({ part }: { part: { input?: unknown; output?: unknown; state?: unknown } }) {
+	const { tr, tError } = useI18n();
 	const output = part.output as ProbeDoneResult | undefined;
 	const state = typeof part.state === "string" ? part.state : "";
 
@@ -43,12 +45,12 @@ export function ProbeDoneCard({ part }: { part: { input?: unknown; output?: unkn
 
 	const heading = <>
 		<ClipboardCheckIcon className="size-3.5 text-primary" />
-		<span className="min-w-0 truncate">Probe assessment</span>
+		<span className="min-w-0 truncate">{tr("Probe assessment", "探测评估")}</span>
 	</>;
 	const note = output && !output.ok ? <>
-		The prober retried: {output.error}
-	</> : state === "output-error" ? "The assessment was malformed — the prober retried with a corrected one."
-		: !strands ? "Writing the assessment…" : null;
+		{tr("The prober retried: {error}", "探测助手已重试：{error}", { error: tError(output.error ?? "") })}
+	</> : state === "output-error" ? tr("The assessment was malformed — the prober retried with a corrected one.", "评估格式有误 — 探测助手已重新生成。")
+		: !strands ? tr("Writing the assessment…", "正在撰写评估…") : null;
 
 	if (note || !strands) return (
 		<div data-testid="probe-done-card" className="my-3 rounded-xl border bg-card/60 p-3">
@@ -64,7 +66,7 @@ export function ProbeDoneCard({ part }: { part: { input?: unknown; output?: unkn
 			<summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl p-3 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:bg-accent/40 group-open:rounded-b-none group-open:border-b [&::-webkit-details-marker]:hidden">
 				{heading}
 				<span className="ml-auto shrink-0 font-normal normal-case tracking-normal text-muted-foreground/70">
-					{strands.length} strand{strands.length === 1 ? "" : "s"}
+					{strands.length === 1 ? tr("{n} strand", "{n} 条主线", { n: strands.length }) : tr("{n} strands", "{n} 条主线", { n: strands.length })}
 				</span>
 				<ChevronRightIcon className="size-3 shrink-0 opacity-50 transition-transform group-open:rotate-90" />
 			</summary>

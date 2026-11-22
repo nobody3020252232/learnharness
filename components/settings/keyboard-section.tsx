@@ -17,6 +17,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n";
 import { useOptionalInteractionLayers } from "../interaction-layers";
 import { isInteractionScopeEligible } from "../plugin-input-focus";
 import {
@@ -35,11 +36,32 @@ import {
 import { SettingsRow } from "./controls.tsx";
 import { coreShortcutBindings, pluginShortcutScopeLabel, useKeymapRevision, usePluginShortcutRows } from "../plugin-shortcuts";
 
-const SCOPES: { scope: KeyScope; label: string }[] = [
-	{ scope: "global", label: "Global" },
-	{ scope: "chat", label: "Chat" },
-	{ scope: "graph", label: "Graph" },
+const SCOPES: { scope: KeyScope; label: string; labelZh: string }[] = [
+	{ scope: "global", label: "Global", labelZh: "全局" },
+	{ scope: "chat", label: "Chat", labelZh: "对话" },
+	{ scope: "graph", label: "Graph", labelZh: "图谱" },
 ];
+
+const ACTION_ZH: Record<KeyAction, string> = {
+	"toggle-dictation": "切换语音听写",
+	"open-settings": "打开设置",
+	"open-model-picker": "模型选择器",
+	"cycle-thinking": "切换推理强度",
+	"toggle-sidebar": "切换会话侧边栏",
+	"sessions-search": "搜索会话",
+	"jump-graph": "知识图谱视图",
+	"new-session": "新建会话",
+	"rename-session": "重命名会话",
+	"toggle-user-thinking": "展开/收起全部你的思考过程",
+	"toggle-question-thread": "题目 · 请求提示（支线讨论）",
+	find: "查找",
+	"cheat-sheet": "快捷键速查表",
+	"question-focus": "题目 · 在思考与选项间切换焦点",
+	"question-next-row": "题目 · 下一行",
+	"question-prev-row": "题目 · 上一行",
+	"question-pick-row": "题目 · 选中当前行",
+	"question-submit": "题目 · 提交",
+};
 
 /** The overrides map after ONE change (pure — exported for tests):
  *  binding null = reset the action to its default (key removed). */
@@ -55,6 +77,7 @@ export function nextOverrides(
 }
 
 export function KeyboardSection() {
+	const { tr, tPluginName, tError } = useI18n();
 	const controller = useOptionalInteractionLayers();
 	const rootRef = useRef<HTMLDivElement>(null);
 	const [overrides, setOverrides] = useState<KeymapOverrides>({});
@@ -91,9 +114,9 @@ export function KeyboardSection() {
 			if (!binding) return;
 			const next = nextOverrides(loadOverrides(), rebinding, binding);
 			if (rebinding.startsWith("plugin:")) {
-				if (!isPluginShortcutBinding(binding)) { setRebindError("Use a Mod/Alt chord or function key. Escape, Tab and Enter are reserved."); return; }
+				if (!isPluginShortcutBinding(binding)) { setRebindError(tr("Use a Mod/Alt chord or function key. Escape, Tab and Enter are reserved.", "请使用 Mod/Alt 组合键或功能键。Escape、Tab 和 Enter 为保留键。")); return; }
 				const row = resolvePluginShortcuts(candidates, next, coreShortcutBindings(next)).find(row => row.id === rebinding);
-				if (!row || row.status !== "active") { setRebindError(row?.reason ?? "This plugin action is no longer available."); return; }
+				if (!row || row.status !== "active") { setRebindError(row?.reason ? tError(row.reason) : tr("This plugin action is no longer available.", "该插件操作已不可用。")); return; }
 			}
 			setRebindError(null);
 			saveOverrides(next);
@@ -102,7 +125,7 @@ export function KeyboardSection() {
 		};
 		window.addEventListener("keydown", onKey, true);
 		return () => window.removeEventListener("keydown", onKey, true);
-	}, [rebinding, controller, candidates]);
+	}, [rebinding, controller, candidates, tr, tError]);
 
 	function resetOne(id: KeyAction) {
 		saveOverrides(nextOverrides(loadOverrides(), id, null));
@@ -119,25 +142,25 @@ export function KeyboardSection() {
 	return (
 		<>
 			{rebindError && rebinding && <p role="alert" className="text-xs text-destructive">{rebindError}</p>}
-			{SCOPES.map(({ scope, label }) => {
+			{SCOPES.map(({ scope, label, labelZh }) => {
 				const actions = KEYBOARD_ACTIONS.filter((a) => a.scope === scope);
 				if (!actions.length) return null;
 				return (
 					<div key={scope} ref={scope === "global" ? rootRef : undefined} data-testid={`kbd-scope-${scope}`}>
-						<p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground/70">{label}</p>
+						<p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground/70">{tr(label, labelZh)}</p>
 						<div className="flex flex-col gap-2">
 							{actions.map((def) => {
 								const effective = overrides[def.id] ?? def.binding;
 								return (
 									<SettingsRow
 										key={def.id}
-										label={def.label}
-										hint={def.displayOnly ? "Fixed — part of this screen" : undefined}
+										label={tr(def.label, ACTION_ZH[def.id])}
+										hint={def.displayOnly ? tr("Fixed — part of this screen", "固定 — 当前界面内置快捷键") : undefined}
 										testid={`kbd-row-${def.id}`}
 									>
 										<span className="flex items-center gap-2">
 											<kbd className="rounded-sm border border-border bg-muted px-1.5 py-0.5 font-ui text-xs">
-												{rebinding === def.id ? "Press keys…" : formatBinding(effective)}
+												{rebinding === def.id ? tr("Press keys…", "请按键…") : formatBinding(effective)}
 											</kbd>
 											{def.displayOnly ? null : rebinding === def.id ? (
 												<button
@@ -145,7 +168,7 @@ export function KeyboardSection() {
 													onClick={() => setRebinding(null)}
 													className="text-xs text-muted-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
 												>
-													Cancel
+													{tr("Cancel", "取消")}
 												</button>
 											) : (
 												<>
@@ -155,7 +178,7 @@ export function KeyboardSection() {
 														data-testid={`kbd-rebind-${def.id}`}
 														className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
 													>
-														Rebind
+														{tr("Rebind", "重绑")}
 													</button>
 													{overridden(def.id) && (
 														<button
@@ -164,7 +187,7 @@ export function KeyboardSection() {
 															data-testid={`kbd-reset-${def.id}`}
 															className="text-xs text-muted-foreground/70 underline-offset-2 hover:text-foreground hover:underline"
 														>
-															Reset
+															{tr("Reset", "重置")}
 														</button>
 													)}
 												</>
@@ -177,29 +200,34 @@ export function KeyboardSection() {
 					</div>
 				);
 			})}
-			{[...new Set(pluginRows.map(row => row.pluginId))].map(pluginId => <div key={pluginId} data-testid={`kbd-plugin-${pluginId}`}>
-				<p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground/70">{pluginRows.find(row => row.pluginId === pluginId)!.pluginName}</p>
+			{[...new Set(pluginRows.map(row => row.pluginId))].map(pluginId => {
+				const rawPluginName = pluginRows.find(row => row.pluginId === pluginId)!.pluginName;
+				return <div key={pluginId} data-testid={`kbd-plugin-${pluginId}`}>
+				<p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground/70">{tPluginName(pluginId, rawPluginName)}</p>
 				<div className="flex flex-col gap-2">{pluginRows.filter(row => row.pluginId === pluginId).map(row => <SettingsRow key={row.id} label={row.name}
-					hint={`${pluginShortcutScopeLabel(row)}${row.reason ? ` · Inactive: ${row.reason}` : ""}`} testid={`kbd-row-${row.id}`}>
+					hint={row.reason
+						? tr("{scope} · Inactive: {reason}", "{scope} · 未生效：{reason}", { scope: pluginShortcutScopeLabel(row), reason: row.reason })
+						: pluginShortcutScopeLabel(row)} testid={`kbd-row-${row.id}`}>
 					<span className="flex items-center gap-2">
-						<kbd className="rounded-sm border border-border bg-muted px-1.5 py-0.5 font-ui text-xs">{rebinding === row.id ? "Press keys…" : row.binding ? formatBinding(row.binding) : "Unbound"}</kbd>
-						{rebinding === row.id ? <button type="button" onClick={() => { setRebinding(null); setRebindError(null); }} className="text-xs text-muted-foreground">Cancel</button> : <>
-							<button type="button" data-testid={`kbd-rebind-${row.id}`} onClick={() => beginRebind(row.id)} className="text-xs text-muted-foreground hover:underline">Rebind</button>
-							{row.binding && <button type="button" data-testid={`kbd-clear-${row.id}`} onClick={() => { saveOverrides(nextOverrides(loadOverrides(), row.id, "")); setNonce(n => n + 1); }} className="text-xs text-muted-foreground hover:underline">Clear</button>}
-							{overrides[row.id] !== undefined && <button type="button" data-testid={`kbd-reset-${row.id}`} onClick={() => { saveOverrides(nextOverrides(loadOverrides(), row.id, null)); setNonce(n => n + 1); }} className="text-xs text-muted-foreground hover:underline">Reset</button>}
+						<kbd className="rounded-sm border border-border bg-muted px-1.5 py-0.5 font-ui text-xs">{rebinding === row.id ? tr("Press keys…", "请按键…") : row.binding ? formatBinding(row.binding) : tr("Unbound", "未绑定")}</kbd>
+						{rebinding === row.id ? <button type="button" onClick={() => { setRebinding(null); setRebindError(null); }} className="text-xs text-muted-foreground">{tr("Cancel", "取消")}</button> : <>
+							<button type="button" data-testid={`kbd-rebind-${row.id}`} onClick={() => beginRebind(row.id)} className="text-xs text-muted-foreground hover:underline">{tr("Rebind", "重绑")}</button>
+							{row.binding && <button type="button" data-testid={`kbd-clear-${row.id}`} onClick={() => { saveOverrides(nextOverrides(loadOverrides(), row.id, "")); setNonce(n => n + 1); }} className="text-xs text-muted-foreground hover:underline">{tr("Clear", "清除")}</button>}
+							{overrides[row.id] !== undefined && <button type="button" data-testid={`kbd-reset-${row.id}`} onClick={() => { saveOverrides(nextOverrides(loadOverrides(), row.id, null)); setNonce(n => n + 1); }} className="text-xs text-muted-foreground hover:underline">{tr("Reset", "重置")}</button>}
 						</>}
 					</span>
 				</SettingsRow>)}</div>
-			</div>)}
+			</div>;
+			})}
 			<div className="mt-1 flex items-center justify-between">
-				<span className="text-xs text-muted-foreground/70">Stored on this device (lh:keymap) — overrides only.</span>
+				<span className="text-xs text-muted-foreground/70">{tr("Stored on this device (lh:keymap) — overrides only.", "仅保存于本设备（lh:keymap）— 仅记录自定义覆盖项。")}</span>
 				<button
 					type="button"
 					onClick={resetAll}
 					data-testid="kbd-reset-all"
 					className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
 				>
-					Reset all to defaults
+					{tr("Reset all to defaults", "全部重置为默认")}
 				</button>
 			</div>
 		</>

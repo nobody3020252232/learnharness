@@ -50,13 +50,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CacheRetention } from "@earendil-works/pi-ai";
 import { CacheRetentionMenu, cacheRetentionLabel } from "./cache-retention-menu.tsx";
+import { useI18n } from "@/components/i18n";
 import { MenuShell } from "@/components/menu-shell";
 import { useInteractionLayers } from "@/components/interaction-layers";
 import { useSettingsSaved } from "@/components/settings-signal";
 import { defaultOrderLevel, populateLevel } from "@/components/thinking-default";
 import { RefreshCw } from "lucide-react";
 import { refreshRemoteModelCatalog, useModelCatalog } from "@/components/model-catalog";
-import type { ModelCatalogRefreshOutcome } from "@/src/core";
+import type { ModelCatalogRefreshOutcome, UiLocale } from "@/src/core";
 import { Hint } from "@/components/ui/hint";
 import { Button } from "@/components/ui/button";
 import { PromptSegmentDialog, type PromptDeleteOutcome, type PromptSaveOutcome } from "./prompt-segment-dialog";
@@ -85,25 +86,33 @@ import { NativeSubscriptionBackgroundAccess } from "./subscription-connections";
 
 /** One slot's display identity — the tier's roster as the row hint rides
  *  with the resolved default (owner: the hint ALWAYS names the default). */
-const SLOT_META: Record<ModelSlotName, { label: string; roster: string }> = {
-	strong: { label: "Strong", roster: "The main model for your sessions" },
-	cheap: { label: "Cheap", roster: "The assistants that research, build demos, and grade your work" },
-	vision: { label: "Vision", roster: "The assistants that draw and read PDFs" },
+const SLOT_META: Record<ModelSlotName, { label: string; roster: string; rosterZh: string }> = {
+	strong: { label: "Strong", roster: "The main model for your sessions", rosterZh: "用于学习会话的主力模型" },
+	cheap: { label: "Cheap", roster: "The assistants that research, build demos, and grade your work", rosterZh: "用于资料检索、交互演示构建与作答批改的辅助模型" },
+	vision: { label: "Vision", roster: "The assistants that draw and read PDFs", rosterZh: "用于绘制图解与阅读 PDF 的视觉模型" },
 };
 
 /** The owner's final toggleable-tool list (confirm with the user before
  *  changing — the Teacher stream settled this 2026-09-19). */
 export const TOGGLE_TOOLS = ["research", "demo", "visual", "pdf"] as const;
 
-const CATALOG_REFRESH_MESSAGES: Record<ModelCatalogRefreshOutcome | "pending" | "failed", string> = {
-	pending: "Refreshing…",
-	updated: "Model catalog updated.",
-	unchanged: "No catalog changes found.",
-	"no-providers": "No configured providers support catalog refresh.",
-	failed: "Could not refresh. Your current catalog is still available.",
+const TOOL_ZH: Record<(typeof TOGGLE_TOOLS)[number], string> = {
+	research: "资料检索 (research)",
+	demo: "交互演示 (demo)",
+	visual: "图解生成 (visual)",
+	pdf: "PDF 阅读 (pdf)",
+};
+
+const CATALOG_REFRESH_MESSAGES: Record<ModelCatalogRefreshOutcome | "pending" | "failed", { en: string; zh: string }> = {
+	pending: { en: "Refreshing…", zh: "正在刷新…" },
+	updated: { en: "Model catalog updated.", zh: "模型目录已更新。" },
+	unchanged: { en: "No catalog changes found.", zh: "未发现模型目录变更。" },
+	"no-providers": { en: "No configured providers support catalog refresh.", zh: "当前已配置的提供商不支持目录刷新。" },
+	failed: { en: "Could not refresh. Your current catalog is still available.", zh: "刷新失败，当前模型目录仍可正常使用。" },
 };
 
 function ModelCatalogRefreshRow() {
+	const { tr } = useI18n();
 	const [state, setState] = useState<keyof typeof CATALOG_REFRESH_MESSAGES>();
 	const pending = state === "pending";
 	async function refresh() {
@@ -111,12 +120,12 @@ function ModelCatalogRefreshRow() {
 		try { setState(await refreshRemoteModelCatalog()); }
 		catch { setState("failed"); }
 	}
-	return <SettingsRow label="Model catalog" testid="model-catalog-refresh-row" hint={
+	return <SettingsRow label={tr("Model catalog", "模型目录")} testid="model-catalog-refresh-row" hint={
 		<span role="status" className={state === "failed" ? "text-destructive" : undefined}>
-			{state ? CATALOG_REFRESH_MESSAGES[state] : "Check Pi for new models"}
+			{state ? tr(CATALOG_REFRESH_MESSAGES[state].en, CATALOG_REFRESH_MESSAGES[state].zh) : tr("Check Pi for new models", "检查 Pi 是否有新模型")}
 		</span>
 	}>
-		<Button type="button" variant="outline" size="icon-sm" aria-label="Refresh model catalog" title="Refresh model catalog" aria-busy={pending}
+		<Button type="button" variant="outline" size="icon-sm" aria-label={tr("Refresh model catalog", "刷新模型目录")} title={tr("Refresh model catalog", "刷新模型目录")} aria-busy={pending}
 			disabled={pending} onClick={() => void refresh()}>
 			<RefreshCw aria-hidden="true" className={pending ? "animate-spin" : undefined} />
 		</Button>
@@ -274,11 +283,12 @@ export interface PromptSection {
  *  Usage is derived from the API's actual per-agent membership, never a
  *  second copy of the runtime's Practice shared-fragment allowlist.
  *  Pure — exported for tests. */
-export function sectionedSegments(view: PromptView): PromptSection[] {
+export function sectionedSegments(view: PromptView, locale: UiLocale = "en"): PromptSection[] {
+	const zh = locale === "zh-CN";
 	const agents = [
-		{ id: "teacher", label: "Teacher" },
-		{ id: "prober", label: "Prober" },
-		{ id: "practice", label: "Practice" },
+		{ id: "teacher", label: zh ? "教学" : "Teacher" },
+		{ id: "prober", label: zh ? "探测" : "Prober" },
+		{ id: "practice", label: zh ? "练习" : "Practice" },
 	] as const;
 	const shared = new Map<string, SegmentInfo>();
 	for (const { id } of agents) {
@@ -290,11 +300,13 @@ export function sectionedSegments(view: PromptView): PromptSection[] {
 		...agents.map(({ id, label }) => ({ id, label, segments: view[id].filter((s) => !s.shared) })),
 		{
 			id: "shared",
-			label: "Shared",
+			label: zh ? "共享" : "Shared",
 			segments: [...shared.values()].map((segment) => {
 				const users = agents.filter(({ id }) => view[id].some((s) => s.path === segment.path)).map(({ label }) => label);
-				const usage = users.length > 1 ? `${users.slice(0, -1).join(", ")} and ${users.at(-1)}` : users[0];
-				return { ...segment, usageHint: `Used by ${usage}` };
+				const usage = zh
+					? users.join("、")
+					: (users.length > 1 ? `${users.slice(0, -1).join(", ")} and ${users.at(-1)}` : users[0]);
+				return { ...segment, usageHint: zh ? `用于：${usage}` : `Used by ${usage}` };
 			}),
 		},
 	];
@@ -392,6 +404,7 @@ export function AgentSection({
 	/** Writes the whole compaction section (replace-PUT discipline). */
 	onCompactionChange: (next: CompactionSettings) => boolean | Promise<boolean>;
 }) {
+	const { tr, isZh, locale, tSlot, tThinking, tError } = useI18n();
 	const { catalog: body, failed: catalogFailed, refresh: refreshCatalog } = useModelCatalog();
 	const catalog = body?.models;
 	const slots = body?.slots;
@@ -585,7 +598,7 @@ export function AgentSection({
 		>
 			<span>{label}</span>
 			<span className="text-muted-foreground">
-				{live === null ? (active && <span aria-hidden>✓</span>) : live ? <span aria-hidden>✓ key</span> : <span aria-hidden>· no key</span>}
+				{live === null ? (active && <span aria-hidden>✓</span>) : live ? <span aria-hidden>{tr("✓ key", "✓ 已配置密钥")}</span> : <span aria-hidden>{tr("· no key", "· 未配置密钥")}</span>}
 			</span>
 		</button>
 	);
@@ -601,15 +614,15 @@ export function AgentSection({
 
 	return (
 		<>
-			<SettingsGroup label="Models" testid="group-models">
+			<SettingsGroup label={tr("Models", "模型")} testid="group-models">
 				<button
 					type="button"
 					data-testid="models-advanced"
 					aria-expanded={advancedModels}
 					onClick={() => { setAdvancedModels(!advancedModels); setOpenMenu(null); }}
 					className="mb-1 self-start text-xs text-muted-foreground hover:text-foreground"
-				>{advancedModels ? "Hide advanced settings" : "Show advanced settings"}</button>
-				{catalogFailed && <p role="alert" className="text-xs text-error">Model catalog could not be loaded. Check the connection and retry. <button type="button" className="underline" onClick={refreshCatalog}>Retry</button></p>}
+				>{advancedModels ? tr("Hide advanced settings", "隐藏高级设置") : tr("Show advanced settings", "显示高级设置")}</button>
+				{catalogFailed && <p role="alert" className="text-xs text-error">{tr("Model catalog could not be loaded. Check the connection and retry.", "无法加载模型目录，请检查网络连接后重试。")} <button type="button" className="underline" onClick={refreshCatalog}>{tr("Retry", "重试")}</button></p>}
 				{MODEL_SLOTS.map((slot) => {
 					const override = models?.[slot];
 					const modelId = override?.model?.id ?? "";
@@ -628,11 +641,13 @@ export function AgentSection({
 					const chosen = coord ? catalog?.find((m) => m.id === coord.id && m.provider === coord.provider) : undefined;
 					const levels = chosen ? chosen.supportedLevels : THINKING_LEVELS;
 					const thisMenuOpen = openMenu?.target === slot ? openMenu.kind : null;
+					const slotLabel = tSlot(slot);
+					const resolvedThinking = thinking || (chosen ? defaultOrderLevel(levels) : "");
 					return (
 						<SettingsRow
 							key={slot}
-							label={SLOT_META[slot].label}
-							hint={SLOT_META[slot].roster}
+							label={slotLabel}
+							hint={tr(SLOT_META[slot].roster, SLOT_META[slot].rosterZh)}
 							testid={`slot-row-${slot}`}
 						>
 							{/* The anchor for the outside-click contract is the
@@ -646,7 +661,7 @@ export function AgentSection({
 									value={modelId ? prettyModel(modelId) : ""}
 									hint={modelId ? `${provider}:${modelId}` : undefined}
 									emptyLabel="—"
-									ariaLabel={`${SLOT_META[slot].label} model`}
+									ariaLabel={tr("{slot} model", "{slot}模型", { slot: slotLabel })}
 									testid={`slot-model-${slot}`}
 									open={thisMenuOpen === "model"}
 									onClick={() => setOpenMenu(thisMenuOpen === "model" ? null : { target: slot, kind: "model" })}
@@ -656,18 +671,18 @@ export function AgentSection({
 									// Legacy display (chunk 2 item 4): no stored level + a known
 									// model → the RESOLVED level (the ordering's first supported —
 									// what the engine build runs). Display-only until a pick writes.
-									value={thinking || (chosen ? defaultOrderLevel(levels) : "")}
+									value={resolvedThinking ? tThinking(resolvedThinking) : ""}
 									emptyLabel="—"
-									ariaLabel={`${SLOT_META[slot].label} thinking`}
+									ariaLabel={tr("{slot} thinking", "{slot}推理强度", { slot: slotLabel })}
 									testid={`slot-thinking-${slot}`}
 									open={thisMenuOpen === "thinking"}
 									onClick={() => setOpenMenu(thisMenuOpen === "thinking" ? null : { target: slot, kind: "thinking" })}
 									widthClass="w-20"
 								/>
 								{advancedModels && <MenuTrigger
-									value={cacheRetentionLabel(override?.cacheRetention)}
-									emptyLabel="Cache: default"
-									ariaLabel={`${SLOT_META[slot].label} cache retention`}
+									value={cacheRetentionLabel(override?.cacheRetention, locale)}
+									emptyLabel={tr("Cache: default", "缓存：默认")}
+									ariaLabel={tr("{slot} cache retention", "{slot}缓存保留", { slot: slotLabel })}
 									testid={`slot-cache-${slot}`}
 									open={thisMenuOpen === "cache"}
 									disabled={!override?.model}
@@ -709,8 +724,8 @@ export function AgentSection({
 											}}
 											footer={
 												catalog && catalog.length === 0
-													? "No models — add a provider key in Keys"
-													: "Runs every agent of this tier"
+													? tr("No models — add a provider key in Keys", "暂无可用模型 — 请在“模型提供商”中添加密钥")
+													: tr("Runs every agent of this tier", "驱动此层级的全部智能体")
 											}
 										/>
 									</MenuShell>
@@ -741,8 +756,8 @@ export function AgentSection({
 				})}
 				<ModelCatalogRefreshRow />
 				<SettingsRow
-					label="Concurrent worker requests"
-					hint="Maximum simultaneous background-worker model requests. Direct conversations are not limited."
+					label={tr("Concurrent worker requests", "后台并发请求上限")}
+					hint={tr("Maximum simultaneous background-worker model requests. Direct conversations are not limited.", "后台辅助任务同时发起的最大模型请求数。直接对话不受此限制。")}
 					testid="worker-request-concurrency-row"
 				>
 					<div
@@ -763,7 +778,7 @@ export function AgentSection({
 							step={1}
 							value={String(agent?.workerRequestConcurrency ?? "")}
 							placeholder={String(resolvedAgent.workerRequestConcurrency)}
-							ariaLabel="Concurrent worker requests"
+							ariaLabel={tr("Concurrent worker requests", "后台并发请求上限")}
 							testid="input-worker-request-concurrency"
 							onCommit={(value) => {
 								const next = composeWorkerRequestConcurrency(agent, value);
@@ -771,12 +786,16 @@ export function AgentSection({
 								return next.ok ? onSectionChange(next.settings) : false;
 							}}
 						/>
-						{workerConcurrencyError && <p role="alert" className="text-xs text-error">{workerConcurrencyError}</p>}
+						{workerConcurrencyError && <p role="alert" className="text-xs text-error">
+							{workerConcurrencyError === "Enter a positive, safely representable whole number."
+								? tr("Enter a positive, safely representable whole number.", "请输入一个有效的正整数。")
+								: workerConcurrencyError}
+						</p>}
 					</div>
 				</SettingsRow>
 			</SettingsGroup>
 
-			<SettingsGroup label="Tools" testid="group-tools">
+			<SettingsGroup label={tr("Tools", "工具")} testid="group-tools">
 				{/* The prober's graph tools (wave 7, owner ruling 2026-09-23):
 				    FIRST row of the group — its subject is the map, its
 				    mechanism is agent capability, so it lives in Tools but
@@ -788,15 +807,16 @@ export function AgentSection({
 					const graphOn = graph?.enabled ?? true;
 					return (
 						<SettingsRow
-							label="Graph tools"
-							hint={graphOn ? "Lets the tutor consult your knowledge map between sessions" : "Graph is disabled"}
+							label={tr("Graph tools", "知识图谱工具")}
+							hint={graphOn ? tr("Lets the tutor consult your knowledge map between sessions", "允许导师在跨会话时查阅你的知识图谱") : tr("Graph is disabled", "知识图谱已禁用")}
 							testid="graph-tools-row"
 							dimmed={!graphOn}
 						>
 							<Toggle
 								checked={agent?.graphTools?.enabled ?? true}
 								disabled={!graphOn}
-								label="graph tools"
+								label={tr("graph tools", "知识图谱工具")}
+								testid="toggle-graph-tools"
 								onChange={(on) => onSectionChange(composeGraphTools(agent, on))}
 							/>
 						</SettingsRow>
@@ -810,12 +830,12 @@ export function AgentSection({
 					const free = agent?.tools?.explain === true;
 					return (
 						<SettingsRow
-							label="Quizzing"
-							hint="How both tutors check your understanding"
+							label={tr("Quizzing", "测验方式")}
+							hint={tr("How both tutors check your understanding", "探测与教学导师检验你理解程度的方式")}
 							testid="quiz-mechanics-row"
 						>
-							<SettingsSegmentedControl label="Quizzing mechanics" testidPrefix="quiz-mechanics"
-								options={[{ value: "choice", label: "Multiple choice" }, { value: "free", label: "Free recall" }]}
+							<SettingsSegmentedControl label={tr("Quizzing mechanics", "测验模式")} testidPrefix="quiz-mechanics"
+								options={[{ value: "choice", label: tr("Multiple choice", "选择题") }, { value: "free", label: tr("Free recall", "自由回忆") }]}
 								value={free ? "free" : "choice"} onChange={(next) => onSectionChange(composeQuizMechanics(agent, next))} />
 						</SettingsRow>
 					);
@@ -823,12 +843,13 @@ export function AgentSection({
 				{TOGGLE_TOOLS.map((id) => (
 					<SettingsRow
 						key={id}
-						label={`Tool: ${id}`}
+						label={isZh ? `工具：${TOOL_ZH[id]}` : `Tool: ${id}`}
 						testid={`tool-row-${id}`}
 					>
 						<Toggle
 							checked={agent?.tools?.[id] ?? true}
-							label={`tool ${id}`}
+							label={isZh ? `工具 ${TOOL_ZH[id]}` : `tool ${id}`}
+							testid={`toggle-tool-${id}`}
 							onChange={(on) => onSectionChange(composeTool(agent, id, on))}
 						/>
 					</SettingsRow>
@@ -839,37 +860,37 @@ export function AgentSection({
 					const effectiveAgent = fileAccessError ? { ...agent, fileAccess: { restricted: true, folders } } : agent;
 					const addFolder = () => {
 						const next = folderInput.trim();
-						if (!isFolderEntry(next)) { setFolderError("Enter an absolute path or ~/folder."); return; }
+						if (!isFolderEntry(next)) { setFolderError("invalid-folder"); return; }
 						if (!folders.includes(next)) onSectionChange(composeAddFolder(effectiveAgent, next));
 						setFolderInput("");
 						setFolderError(null);
 					};
 					return (
 						<div data-testid="file-access-row" className="flex flex-col gap-2">
-							<SettingsRow label="File access" hint={!restricted
-								? "Broad local source access, except protected locations"
-								: folders.length ? "Only listed folders and subfolders."
-									: "Restricted: no folders allowed. Add a folder to enable access."}>
+							<SettingsRow label={tr("File access", "本地文件访问")} hint={!restricted
+								? tr("Broad local source access, except protected locations", "可广泛访问本地资料目录（受保护系统目录除外）")
+								: folders.length ? tr("Only listed folders and subfolders.", "仅允许访问下方列出的目录及其子目录。")
+									: tr("Restricted: no folders allowed. Add a folder to enable access.", "已限制：尚未允许任何目录。请添加目录以启用本地访问。")}>
 								<div className="flex items-center gap-2 text-xs">
-									<span>Restrict to listed folders</span>
-									<Toggle checked={restricted} label="Restrict to listed folders" onChange={(on) => onSectionChange(composeFileRestriction(effectiveAgent, on))} />
+									<span>{tr("Restrict to listed folders", "仅限已列出的目录")}</span>
+									<Toggle checked={restricted} label={tr("Restrict to listed folders", "仅限已列出的目录")} testid="toggle-restrict-to-listed-folders" onChange={(on) => onSectionChange(composeFileRestriction(effectiveAgent, on))} />
 								</div>
 							</SettingsRow>
-							{fileAccessError && <p role="alert" data-testid="file-access-config-error" className="text-xs text-error">{fileAccessError}</p>}
+							{fileAccessError && <p role="alert" data-testid="file-access-config-error" className="text-xs text-error">{tError(fileAccessError)}</p>}
 							<div className="flex gap-2 pl-3">
-								<input value={folderInput} aria-label="Allowed folder path" data-testid="file-access-add" placeholder="Absolute path or ~/folder"
+								<input value={folderInput} aria-label={tr("Allowed folder path", "允许访问的目录路径")} data-testid="file-access-add" placeholder={tr("Absolute path or ~/folder", "绝对路径或 ~/文件夹")}
 									onChange={(event) => { setFolderInput(event.target.value); setFolderError(null); }}
 									onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addFolder(); } }}
 									className="min-w-0 flex-1 rounded-sm border border-border bg-background px-2 py-1 font-ui text-xs" />
-								<button type="button" data-testid="file-access-add-button" disabled={!folderInput.trim()} onClick={addFolder} className="rounded-sm border border-border px-2 text-xs disabled:opacity-40">Add folder</button>
+								<button type="button" data-testid="file-access-add-button" disabled={!folderInput.trim()} onClick={addFolder} className="rounded-sm border border-border px-2 text-xs disabled:opacity-40">{tr("Add folder", "添加目录")}</button>
 							</div>
-							{folderError && <p role="alert" data-testid="file-access-input-error" className="pl-3 text-xs text-error">{folderError}</p>}
+							{folderError && <p role="alert" data-testid="file-access-input-error" className="pl-3 text-xs text-error">{tr("Enter an absolute path or ~/folder.", "请输入绝对路径或 ~/文件夹 路径。")}</p>}
 							{folders.map((folder) => (
 								<div key={folder} data-testid="file-access-folder" className="flex items-center justify-between gap-4 pl-3 text-xs">
 									<span title={folder} className="min-w-0 truncate font-ui text-muted-foreground">{folder}</span>
-									<button type="button" aria-label={`Remove ${folder}`} data-testid="file-access-remove"
+									<button type="button" aria-label={tr("Remove {folder}", "移除 {folder}", { folder })} data-testid="file-access-remove"
 										onClick={() => onSectionChange(composeRemoveFolder(effectiveAgent, folder))}
-										className="rounded-sm px-1.5 text-muted-foreground hover:text-foreground">Remove</button>
+										className="rounded-sm px-1.5 text-muted-foreground hover:text-foreground">{tr("Remove", "移除")}</button>
 								</div>
 							))}
 						</div>
@@ -881,7 +902,7 @@ export function AgentSection({
 					const open = openMenu?.target === "search";
 					return (
 						<SettingsRow
-							label="Search engine"
+							label={tr("Search engine", "搜索引擎")}
 							hint={search?.reason ?? undefined}
 							testid="search-engine-row"
 							dimmed={!anyKey}
@@ -889,8 +910,8 @@ export function AgentSection({
 							<span ref={open ? menuAnchorRef : undefined} className="relative flex items-center gap-2">
 								<MenuTrigger
 									value={SEARCH_ENGINES.find(({ id }) => id === engine)?.label ?? ""}
-									emptyLabel="Automatic"
-									ariaLabel="Search engine"
+									emptyLabel={tr("Automatic", "自动选择")}
+									ariaLabel={tr("Search engine", "搜索引擎")}
 									testid="search-engine-trigger"
 									open={open}
 									onClick={() => setOpenMenu(open ? null : { target: "search", kind: "engine" })}
@@ -905,7 +926,7 @@ export function AgentSection({
 										onClose={() => { setOpenMenu(null); return "closed"; }}
 										menuClass="flex w-44 flex-col gap-0.5 rounded-xl border border-border bg-card p-2 text-xs shadow-xl"
 									>
-										{engineOption("auto", "Automatic", engine === null, null, () => {
+										{engineOption("auto", tr("Automatic", "自动选择"), engine === null, null, () => {
 											onSectionChange(composeSearchEngine(agent, null));
 											setOpenMenu(null);
 										})}
@@ -923,9 +944,9 @@ export function AgentSection({
 				})()}
 			</SettingsGroup>
 
-			<SettingsGroup label="Context" testid="group-context">
+			<SettingsGroup label={tr("Context", "上下文")} testid="group-context">
 				<SettingsRow
-					label="Compaction threshold"
+					label={tr("Compaction threshold", "上下文压缩阈值")}
 					hint={`${resolvedCompaction.thresholdTokens} tok`}
 					testid="compaction-row-threshold"
 				>
@@ -933,7 +954,7 @@ export function AgentSection({
 						type="number"
 						value={String(compaction?.thresholdTokens ?? "")}
 						placeholder={String(resolvedCompaction.thresholdTokens)}
-						ariaLabel="compaction threshold"
+						ariaLabel={tr("compaction threshold", "上下文压缩阈值")}
 						testid="input-compaction-threshold"
 						onCommit={(v) => {
 							// Empty = factory default (the budget row's discipline):
@@ -954,37 +975,38 @@ export function AgentSection({
 					/>
 				</SettingsRow>
 				<SettingsRow
-					label="Include reasoning in token estimates (OpenAI Responses only)"
-					hint="Use saved output-token usage to account for replayed reasoning on matching OpenAI Responses models. Off uses the original text-based estimate."
+					label={tr("Include reasoning in token estimates (OpenAI Responses only)", "在 Token 估算中包含推理内容（仅 OpenAI Responses）")}
+					hint={tr("Use saved output-token usage to account for replayed reasoning on matching OpenAI Responses models. Off uses the original text-based estimate.", "使用已保存的输出 Token 用量计入匹配的 OpenAI Responses 模型重放的推理部分。关闭时使用原有的纯文本估算。")}
 					testid="compaction-row-reasoning"
 				>
 					<Toggle
-						label="Include reasoning in token estimates (OpenAI Responses only)"
+						label={tr("Include reasoning in token estimates (OpenAI Responses only)", "在 Token 估算中包含推理内容（仅 OpenAI Responses）")}
+						testid="toggle-include-reasoning-in-token-estimates-openai-responses-only-"
 						checked={resolvedCompaction.includeReasoning}
 						onChange={(includeReasoning) => onCompactionChange({ ...compaction, includeReasoning })}
 					/>
 				</SettingsRow>
 			</SettingsGroup>
 
-			<SettingsGroup label="System prompts" testid="group-prompts">
-				<p className="text-xs text-muted-foreground">Use the switch to choose between the default and your saved override.</p>
+			<SettingsGroup label={tr("System prompts", "系统提示词")} testid="group-prompts">
+				<p className="text-xs text-muted-foreground">{tr("Use the switch to choose between the default and your saved override.", "使用开关在默认提示词与你保存的自定义覆盖之间切换。")}</p>
 				{promptListStatus !== "ready" && <div className="flex items-center gap-2">
-					{promptListStatus === "failed" ? <p role="alert" className="text-xs text-error">Couldn't load prompt segments.</p> :
-						<p role="status" className="text-xs text-muted-foreground">{prompts ? "Refreshing prompt segments…" : "Loading prompt segments…"}</p>}
-					<Button type="button" size="xs" variant="outline" onClick={() => void readPrompts()}>Retry</Button>
+					{promptListStatus === "failed" ? <p role="alert" className="text-xs text-error">{tr("Couldn't load prompt segments.", "无法加载提示词片段。")}</p> :
+						<p role="status" className="text-xs text-muted-foreground">{prompts ? tr("Refreshing prompt segments…", "正在刷新提示词片段…") : tr("Loading prompt segments…", "正在加载提示词片段…")}</p>}
+					<Button type="button" size="xs" variant="outline" onClick={() => void readPrompts()}>{tr("Retry", "重试")}</Button>
 				</div>}
 				{prompts && (
 					<div className="flex flex-col gap-4">
 						{/* Teacher, Prober, Practice, Shared — shared chunks once,
 						    each agent's own section in prompt-assembly order. */}
-						{sectionedSegments(prompts).map((section) => (
+						{sectionedSegments(prompts, locale).map((section) => (
 							<div key={section.id} data-testid={`prompt-section-${section.id}`}>
 								<p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground/70">
 									{section.label}
 								</p>
 								{section.segments.map((info) => <PromptSegmentRow key={info.path}
 									path={info.path} usageHint={info.usageHint} hasOverride={info.overrideText !== null} enabled={info.enabled}
-									busy={promptListStatus !== "ready"} switching={switchPending} error={switchError === info.path ? "Couldn't switch prompt versions." : undefined}
+									busy={promptListStatus !== "ready"} switching={switchPending} error={switchError === info.path ? tr("Couldn't switch prompt versions.", "无法切换提示词版本。") : undefined}
 									onView={row => setOpenSegment({ info, mode: "view", row })}
 									onEdit={row => setOpenSegment({ info, mode: "edit", row })}
 									onToggle={(on) => void switchSegment(info.path, on)}

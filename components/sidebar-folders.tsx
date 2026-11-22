@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type DragEvent, type MouseEvent as Re
 import { ChevronRightIcon, FolderIcon, FolderOpenIcon } from "lucide-react";
 import { canMoveFolder, type OrganizationAction, type SourceFolder, type SourceOrganization } from "@/src/core";
 import { EditableSourceName, SOURCE_DRAG_TYPE, SourceDragRow } from "@/components/source-folder-tree";
+import { useI18n } from "@/components/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -111,6 +112,7 @@ export function SidebarFolderRow({ folder, depth, open, dropActive, renaming, on
 	onRename: (name: string) => Promise<unknown>;
 	onRenameDone: () => void;
 }) {
+	const { tr } = useI18n();
 	const Icon = open ? FolderOpenIcon : FolderIcon;
 	return (
 		<SourceDragRow kind="folder" id={folder.id} name={folder.name} enabled={draggable && !renaming}
@@ -125,7 +127,7 @@ export function SidebarFolderRow({ folder, depth, open, dropActive, renaming, on
 				</div>
 			) : (
 				<button type="button" data-testid={`sidebar-folder-${folder.id}`} aria-expanded={open}
-					aria-label={`${open ? "Collapse" : "Expand"} folder ${folder.name}`}
+					aria-label={open ? tr("Collapse folder {name}", "收起文件夹 {name}", { name: folder.name }) : tr("Expand folder {name}", "展开文件夹 {name}", { name: folder.name })}
 					onClick={onToggle} onContextMenu={onContextMenu}
 					className={cn("flex w-full items-center gap-1 pr-3 text-left hover:bg-accent", compact ? SIDEBAR_COMPACT_ROW : "py-1.5")}
 					style={{ paddingLeft: sidebarFolderBox(depth).paddingLeft }}>

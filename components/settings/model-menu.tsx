@@ -20,13 +20,14 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import type { ModelCatalogEntry } from "@/src/core";
+import type { ModelCatalogEntry, UiLocale } from "@/src/core";
 import { CLAUDE_CODE_PROVIDER, CUSTOM_PROVIDER, fuzzyScore, subscriptionLabel } from "@/src/core";
+import { useI18n } from "@/components/i18n";
 import { formatTokens } from "@/components/usage-format";
 import { SearchMenuList } from "./search-menu-list";
 
-function priceLabel(cost: ModelCatalogEntry["cost"]): string {
-	if (!cost) return "Unpriced";
+function priceLabel(cost: ModelCatalogEntry["cost"], locale: UiLocale = "en"): string {
+	if (!cost) return locale === "zh-CN" ? "未标价" : "Unpriced";
 	const fmt = (n: number) => `$${n < 1 ? n.toFixed(2).replace(/0$/, "") : n.toFixed(2)}`;
 	return `${fmt(cost.input)}/${fmt(cost.output)}`;
 }
@@ -60,6 +61,7 @@ export function ModelMenuList({
 	 *  Image-capable ones float to the top. */
 	vision?: boolean;
 }) {
+	const { tr, locale } = useI18n();
 	// Vision slot: built-ins must report image input; custom-endpoint models
 	// stay selectable (the endpoint may not report a modality). Image-capable
 	// ones float to the top of the list.
@@ -79,21 +81,24 @@ export function ModelMenuList({
 				searchTestid="model-search"
 				listTestid="model-list"
 				optionTestid={(m) => `model-option-${m.id.replace(/[^a-z0-9-]/gi, "_")}`}
-				placeholder="Search models…"
-				loading="Loading models…"
-				empty="No models match."
-				renderItem={(m) => <>
+				placeholder={tr("Search models…", "搜索模型…")}
+				loading={tr("Loading models…", "正在加载模型…")}
+				empty={tr("No models match.", "没有匹配的模型。")}
+				renderItem={(m) => {
+					const subLabel = subscriptionLabel(`${m.provider}:${m.id}`);
+					return <>
 					<span className="flex items-center justify-between gap-2">
 						<span className="truncate text-card-foreground">{m.name}</span>
-						<span className="shrink-0 tabular-nums text-muted-foreground" title={m.provider === CLAUDE_CODE_PROVIDER ? "Billing is determined by your Claude Code configuration; LearnHarness does not estimate it." : subscriptionLabel(`${m.provider}:${m.id}`) ? "Subscription connection" : m.cost ? "USD per 1M tokens in/out" : "Price unavailable"}>
-							{m.provider === CLAUDE_CODE_PROVIDER ? "CLI billing" : subscriptionLabel(`${m.provider}:${m.id}`) ?? priceLabel(m.cost)}
+						<span className="shrink-0 tabular-nums text-muted-foreground" title={m.provider === CLAUDE_CODE_PROVIDER ? tr("Billing is determined by your Claude Code configuration; LearnHarness does not estimate it.", "计费由你的 Claude Code 配置决定，LearnHarness 不会进行估算。") : subLabel ? tr("Subscription connection", "订阅连接") : m.cost ? tr("USD per 1M tokens in/out", "每百万输入/输出 Token 的美元价格") : tr("Price unavailable", "暂无价格信息")}>
+							{m.provider === CLAUDE_CODE_PROVIDER ? tr("CLI billing", "CLI 计费") : subLabel ?? priceLabel(m.cost, locale)}
 						</span>
 					</span>
 					<span className="flex items-center justify-between gap-2 text-muted-foreground">
-						<span className="truncate">{subscriptionLabel(`${m.provider}:${m.id}`) ? `${subscriptionLabel(`${m.provider}:${m.id}`)} (subscription)` : m.provider} · {m.id}</span>
+						<span className="truncate">{subLabel ? tr("{label} (subscription)", "{label}（订阅）", { label: subLabel }) : m.provider} · {m.id}</span>
 						<span className="shrink-0 tabular-nums">{m.contextWindow === null ? "—" : formatTokens(m.contextWindow)}</span>
 					</span>
-				</>}
+				</>;
+				}}
 			/>
 			{footer && (
 				<div className="mt-1 border-t px-2 pt-1.5 text-xs text-muted-foreground">{footer}</div>
@@ -118,10 +123,11 @@ export function ThinkingMenuList({
 	empty?: string;
 	footer?: string;
 }) {
+	const { tr, tThinking } = useI18n();
 	return (
 		<>
 			{levels.length === 0 ? (
-				<div className="px-2 py-3 text-center text-muted-foreground">{empty ?? "No thinking levels."}</div>
+				<div className="px-2 py-3 text-center text-muted-foreground">{empty ?? tr("No thinking levels.", "无可用推理强度。")}</div>
 			) : (
 				levels.map((level) => (
 					<button
@@ -133,7 +139,7 @@ export function ThinkingMenuList({
 							level === effectiveLevel ? "bg-muted/60 text-card-foreground" : "text-card-foreground"
 						}`}
 					>
-						<span>{level}</span>
+						<span>{tThinking(level)}</span>
 						{level === effectiveLevel && <span aria-hidden>✓</span>}
 					</button>
 				))
@@ -157,6 +163,7 @@ export function ProviderMenuList({
 	providers: { id: string; envVar: string; label: string }[];
 	onPick: (provider: { id: string; envVar: string; label: string }) => void;
 }) {
+	const { tr } = useI18n();
 	const [query, setQuery] = useState("");
 	const [menuIdx, setMenuIdx] = useState<number | null>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
@@ -206,11 +213,11 @@ export function ProviderMenuList({
 						}
 					}
 				}}
-				placeholder="Search providers…"
+				placeholder={tr("Search providers…", "搜索模型提供商…")}
 				className="lh-input mb-1.5 w-full rounded-lg border bg-background px-2 py-1.5 text-foreground outline-none focus:ring-1 focus:ring-ring"
 			/>
 			{results.length === 0 && (
-				<div className="px-2 py-3 text-center text-muted-foreground">No providers match.</div>
+				<div className="px-2 py-3 text-center text-muted-foreground">{tr("No providers match.", "没有匹配的模型提供商。")}</div>
 			)}
 			<ul ref={listRef} data-testid="provider-list" className="flex max-h-72 flex-col overflow-y-auto px-1">
 				{results.map((p, i) => (
@@ -287,6 +294,7 @@ export function FontMenuList({
 	/** Quiet footer note under the list. */
 	footer?: string;
 }) {
+	const { tr } = useI18n();
 	const [query, setQuery] = useState("");
 	const [menuIdx, setMenuIdx] = useState<number | null>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
@@ -336,10 +344,10 @@ export function FontMenuList({
 						}
 					}
 				}}
-				placeholder="Search fonts…"
+				placeholder={tr("Search fonts…", "搜索字体…")}
 				className="lh-input mb-1.5 w-full rounded-lg border bg-background px-2 py-1.5 text-foreground outline-none focus:ring-1 focus:ring-ring"
 			/>
-			{!families && <div className="px-2 py-3 text-center text-muted-foreground">Loading fonts…</div>}
+			{!families && <div className="px-2 py-3 text-center text-muted-foreground">{tr("Loading fonts…", "正在加载字体…")}</div>}
 			<ul ref={listRef} data-testid="font-list" className="flex max-h-72 flex-col overflow-y-auto px-1">
 				{families &&
 					results.map((family, i) => {
@@ -357,7 +365,7 @@ export function FontMenuList({
 									}${effective && i !== menuIdx ? " bg-muted/60" : ""}`}
 								>
 									<span className="truncate text-card-foreground">{family ?? "Source Sans 3"}</span>
-									<span className="shrink-0 text-muted-foreground">{isDefault ? "default" : effective && <span aria-hidden>✓</span>}</span>
+									<span className="shrink-0 text-muted-foreground">{isDefault ? tr("default", "默认") : effective && <span aria-hidden>✓</span>}</span>
 								</button>
 							</li>
 						);
@@ -373,8 +381,8 @@ export function FontMenuList({
 								menuIdx === 0 ? "bg-accent/40 ring-1 ring-inset ring-border" : ""
 							}`}
 						>
-							<span className="truncate text-card-foreground">Use “{customFamily}”</span>
-							<span className="shrink-0 text-muted-foreground">custom</span>
+							<span className="truncate text-card-foreground">{tr("Use “{family}”", "使用“{family}”", { family: customFamily })}</span>
+							<span className="shrink-0 text-muted-foreground">{tr("custom", "自定义")}</span>
 						</button>
 					</li>
 				)}

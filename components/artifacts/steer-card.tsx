@@ -9,6 +9,7 @@ import { PdfBriefCard, ResearchBriefCard } from "@/components/artifacts/job-card
 import { VisualOutputCard } from "@/components/artifacts/visual-card";
 import { PluginWorkerCard } from "@/components/artifacts/plugin-worker-card";
 import { WorkerResultDetails } from "@/components/artifacts/worker-result-presentation";
+import { useI18n } from "@/components/i18n";
 
 /**
  * The sub-agent result delivery card (contracts.ts "THE ASYNC PROTOCOL" §4).
@@ -30,6 +31,7 @@ import { WorkerResultDetails } from "@/components/artifacts/worker-result-presen
  *     tool renderer and a persisted readable fallback (the call keeps its ack).
  */
 export function SubagentSteerCard({ message }: { message: LhViewMessage }) {
+	const { tr, tError } = useI18n();
 	const artifactPart = message.parts.find((p) => p.type === "data-subagent-artifact");
 	const data = artifactPart?.data as SubagentArtifactData | undefined;
 	// The abort steer (2026-09 dock semantics): its message-type part is
@@ -43,14 +45,14 @@ export function SubagentSteerCard({ message }: { message: LhViewMessage }) {
 		// learner aborts and do not invent an outcome for an unreadable task.
 		if (typeof aborted?.data?.failure === "string") return (
 			<div data-testid="job-delivery-failure" role="alert" className="space-y-1 rounded-xl border bg-card p-4 text-sm">
-				<p className="font-medium">Background job recovery/delivery failed</p>
-				<p className="whitespace-pre-wrap break-words text-muted-foreground">{aborted.data.failure}</p>
+				<p className="font-medium">{tr("Background job recovery/delivery failed", "后台任务恢复或投递失败")}</p>
+				<p className="whitespace-pre-wrap break-words text-muted-foreground">{tError(aborted.data.failure)}</p>
 			</div>
 		);
 		if (aborted?.data) return <AbortedBadge kind={aborted.data.kind ?? "job"} />;
 		return (
 				<div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
-				A sub-agent finished, but its result could not be displayed.
+				{tr("A sub-agent finished, but its result could not be displayed.", "子代理已完成，但结果无法显示。")}
 			</div>
 		);
 	}
@@ -82,11 +84,20 @@ export function SubagentSteerCard({ message }: { message: LhViewMessage }) {
  * teacher's wake turn acknowledges the abort in the lesson itself,
  * this just marks what happened. */
 function AbortedBadge({ kind }: { kind: string }) {
+	const { tr } = useI18n();
+	const kindLabel =
+		kind === "research" ? tr("research", "调研")
+			: kind === "pdf" ? "PDF"
+				: kind === "demo" ? tr("demo", "交互演示")
+					: kind === "visual" ? tr("visual", "图解")
+						: kind === "plugin" ? tr("plugin", "插件")
+							: kind === "job" ? tr("job", "任务")
+								: kind;
 	return (
 		<div data-testid="job-aborted-badge" className="flex items-center gap-2 text-xs text-muted-foreground">
 			<CircleX className="size-3.5" />
-			<span className="font-medium uppercase tracking-wide">{kind}</span>
-			<span>aborted by the learner</span>
+			<span className="font-medium uppercase tracking-wide">{kindLabel}</span>
+			<span>{tr("aborted by the learner", "已被学习者中止")}</span>
 		</div>
 	);
 }
@@ -96,16 +107,19 @@ function AbortedBadge({ kind }: { kind: string }) {
  * the badge marks delivery, the collapsed details carries the full text
  * + consulted pages. */
 function PdfCompleteBadge({ result }: { result: PdfResult }) {
+	const { tr } = useI18n();
 	// The honest count is READ pages (extract/render — sources v1 split);
 	// the ?? is runtime tolerance for pre-split persisted steers.
 	const readPages = result.pagesRead ?? result.pagesConsulted;
 	return (
 		<WorkerResultDetails testId="pdf-complete-badge" heading={<>
 				<span className="font-medium uppercase tracking-wide">PDF</span>
-				<span>reading complete</span>
+				<span>{tr("reading complete", "阅读完成")}</span>
 				{readPages.length > 0 && (
 					<span>
-						· read {readPages.length} page{readPages.length === 1 ? "" : "s"}
+						{readPages.length === 1
+							? tr("· read {n} page", "· 已读 {n} 页", { n: readPages.length })
+							: tr("· read {n} pages", "· 已读 {n} 页", { n: readPages.length })}
 					</span>
 				)}
 			</>}>
@@ -120,11 +134,12 @@ function PdfCompleteBadge({ result }: { result: PdfResult }) {
  * affordance): full markdown + sources, one click away, no extra fetch —
  * the artifact part in the record is the single source of truth. */
 function ResearchCompleteBadge({ result }: { result: ResearchResult }) {
+	const { tr } = useI18n();
 	return (
 		<WorkerResultDetails testId="research-complete-badge" heading={<>
-				<span className="font-medium uppercase tracking-wide">Research</span>
-				<span>complete</span>
-				{result.sources.length > 0 && <span>· {result.sources.length} sources</span>}
+				<span className="font-medium uppercase tracking-wide">{tr("Research", "调研")}</span>
+				<span>{tr("complete", "已完成")}</span>
+				{result.sources.length > 0 && <span>{tr("· {n} sources", "· {n} 项来源", { n: result.sources.length })}</span>}
 			</>}>
 			<ResearchBriefCard output={result} />
 		</WorkerResultDetails>

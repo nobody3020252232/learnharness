@@ -1,24 +1,27 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CLAUDE_CODE_MINIMUM_VERSION, type ClaudeCodeStatus, type UserSettings } from "@/src/core";
+import { CLAUDE_CODE_MINIMUM_VERSION, type ClaudeCodeStatus, type UiLocale, type UserSettings } from "@/src/core";
+import { useI18n } from "@/components/i18n";
 import { notifySettingsSaved, useSettingsSaved } from "@/components/settings-signal";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "./controls";
 
-export function claudeCodeStatusLabel(status: ClaudeCodeStatus | null): string {
+export function claudeCodeStatusLabel(status: ClaudeCodeStatus | null, locale: UiLocale = "en"): string {
+	const zh = locale === "zh-CN";
 	switch (status?.state) {
-		case "not-found": return "Not found";
-		case "meets-minimum": return `Version ${status.version} · meets minimum`;
-		case "update-required": return `Version ${status.version} · update required`;
-		default: return "Version could not be checked";
+		case "not-found": return zh ? "未找到" : "Not found";
+		case "meets-minimum": return zh ? `版本 ${status.version} · 满足最低要求` : `Version ${status.version} · meets minimum`;
+		case "update-required": return zh ? `版本 ${status.version} · 需要更新` : `Version ${status.version} · update required`;
+		default: return zh ? "无法检查版本" : "Version could not be checked";
 	}
 }
 
 export function ClaudeCodeInstallationStatus() {
+	const { tr, isZh, locale } = useI18n();
 	const [enabled, setEnabled] = useState(false);
 	const [loaded, setLoaded] = useState(false);
 	const [saving, setSaving] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<"load" | "save" | null>(null);
 	const [status, setStatus] = useState<ClaudeCodeStatus | null>(null);
 	const [busy, setBusy] = useState(false);
 	const request = useRef<AbortController | null>(null);
@@ -40,7 +43,7 @@ export function ClaudeCodeInstallationStatus() {
 				setError(null);
 			}
 		} catch {
-			if (!controller.signal.aborted) setError("Could not load Claude Code settings.");
+			if (!controller.signal.aborted) setError("load");
 		}
 	}, []);
 	useEffect(() => {
@@ -66,7 +69,7 @@ export function ClaudeCodeInstallationStatus() {
 				notifySettingsSaved("claudeCode");
 			}
 		} catch {
-			if (!controller.signal.aborted) setError("Could not save Claude Code settings.");
+			if (!controller.signal.aborted) setError("save");
 		} finally {
 			if (!controller.signal.aborted) setSaving(false);
 		}
@@ -101,17 +104,29 @@ export function ClaudeCodeInstallationStatus() {
 	return <div className="space-y-2" data-testid="claude-code-installation">
 		<div className="flex items-center gap-3">
 			<span className="font-prose text-(length:--lh-prose-size) text-foreground">Claude Code</span>
-			<Toggle label="Claude Code" checked={enabled} disabled={!loaded || saving} onChange={(next) => void save(next)} />
+			<Toggle label="Claude Code" testid="toggle-claude-code" checked={enabled} disabled={!loaded || saving} onChange={(next) => void save(next)} />
 		</div>
-		{error && <p role="alert" className="text-xs text-error">{error}</p>}
+		{error && <p role="alert" className="text-xs text-error">
+			{error === "load"
+				? tr("Could not load Claude Code settings.", "无法加载 Claude Code 设置。")
+				: tr("Could not save Claude Code settings.", "无法保存 Claude Code 设置。")}
+		</p>}
 		{enabled && <>
 			<div className="flex flex-wrap items-center gap-3">
-				<span role="status" className="text-xs text-muted-foreground">{busy ? "Checking…" : claudeCodeStatusLabel(status)}</span>
-				<Button type="button" size="xs" variant="outline" className="cursor-pointer disabled:cursor-not-allowed" disabled={busy} onClick={() => void refresh()} data-testid="claude-code-check-again">Check again</Button>
+				<span role="status" className="text-xs text-muted-foreground">{busy ? tr("Checking…", "正在检查…") : claudeCodeStatusLabel(status, locale)}</span>
+				<Button type="button" size="xs" variant="outline" className="cursor-pointer disabled:cursor-not-allowed" disabled={busy} onClick={() => void refresh()} data-testid="claude-code-check-again">{tr("Check again", "重新检查")}</Button>
 			</div>
-			<p className="text-xs leading-relaxed text-muted-foreground"><strong className="font-medium">Install and authenticate Claude Code in your terminal, then select a Claude Code model here.</strong> LearnHarness starts it when needed—no background process required.</p>
-			<p className="text-xs leading-relaxed text-muted-foreground">Checks installation/version only—not authentication, model access, or quota. Claude Code controls billing. Requires v{CLAUDE_CODE_MINIMUM_VERSION}+. <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">Setup ↗</a></p>
-			<p className="text-xs leading-relaxed text-muted-foreground">Verify AI claims independently—they may be inaccurate, incomplete, misleading, or outdated.</p>
+			<p className="text-xs leading-relaxed text-muted-foreground">
+				{isZh
+					? <><strong className="font-medium">请先在终端中安装并完成 Claude Code 登录认证，随后在此选择 Claude Code 模型。</strong>LearnHarness 会在需要时自动拉起，无需常驻后台进程。</>
+					: <><strong className="font-medium">Install and authenticate Claude Code in your terminal, then select a Claude Code model here.</strong> LearnHarness starts it when needed—no background process required.</>}
+			</p>
+			<p className="text-xs leading-relaxed text-muted-foreground">
+				{isZh
+					? <>仅检查安装情况与版本，不检查认证状态、模型权限或额度。计费由 Claude Code 自行管理，要求 v{CLAUDE_CODE_MINIMUM_VERSION}+。<a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">安装指南 ↗</a></>
+					: <>Checks installation/version only—not authentication, model access, or quota. Claude Code controls billing. Requires v{CLAUDE_CODE_MINIMUM_VERSION}+. <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">Setup ↗</a></>}
+			</p>
+			<p className="text-xs leading-relaxed text-muted-foreground">{tr("Verify AI claims independently—they may be inaccurate, incomplete, misleading, or outdated.", "请独立核实 AI 的陈述——其内容可能存在不准确、不完整、误导性或过时的情况。")}</p>
 		</>}
 	</div>;
 }

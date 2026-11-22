@@ -3,8 +3,24 @@
 import { ChevronRight } from "lucide-react";
 import { BrailleSpinner } from "@/components/braille-spinner";
 import { Shimmer } from "@/components/ai-elements/shimmer";
+import { useI18n } from "@/components/i18n";
 import { toolActivityLabel } from "@/src/core";
 import type { ArtifactPartProps } from "@/src/core";
+
+const ACTIVITY_ZH: Readonly<Record<string, string>> = {
+	"Reading a file…": "正在读取文件…",
+	"Listing a directory…": "正在列出目录…",
+	"Finding files…": "正在查找文件…",
+	"Searching file contents…": "正在搜索文件内容…",
+	"Dispatching research…": "正在派发调研任务…",
+	"Building a demo…": "正在构建交互演示…",
+	"Making a visual…": "正在绘制图解…",
+	"Reading a PDF…": "正在阅读 PDF…",
+	"Drawing up the plan…": "正在制定学习规划…",
+	"Concluding the assessment…": "正在总结探测评估…",
+	"Writing a question…": "正在编写题目…",
+	"Working…": "正在处理…",
+};
 
 /**
  * The LIVE tool-input card (owner, streaming round 2026-10-01): what a
@@ -28,6 +44,7 @@ interface StreamingToolPart {
 }
 
 export function LiveToolCard({ part }: ArtifactPartProps) {
+	const { tr, isZh } = useI18n();
 	const p = part as StreamingToolPart;
 	const tool = p.type.replace(/^tool-/, "");
 	const inp = (p.input ?? {}) as Record<string, unknown>;
@@ -39,6 +56,8 @@ export function LiveToolCard({ part }: ArtifactPartProps) {
 	else if (typeof inp.session === "string" && inp.session) arg = inp.session;
 
 	const hasInput = p.input != null && Object.keys(inp).length > 0;
+	const rawActivity = toolActivityLabel(tool);
+	const activity = isZh ? (ACTIVITY_ZH[rawActivity] ?? rawActivity) : rawActivity;
 
 	return (
 		<details
@@ -47,15 +66,15 @@ export function LiveToolCard({ part }: ArtifactPartProps) {
 			className="group my-1 w-full max-w-2xl select-none"
 		>
 			<summary className="flex cursor-pointer list-none items-center gap-2 text-xs text-muted-foreground [&::-webkit-details-marker]:hidden">
-				<BrailleSpinner label={`${toolActivityLabel(tool)} — live`} />
+				<BrailleSpinner label={tr("{activity} — live", "{activity} — 进行中", { activity })} />
 				<Shimmer duration={1} className="text-xs">
-					{toolActivityLabel(tool)}
+					{activity}
 				</Shimmer>
 				{arg && <span className="truncate">{arg}</span>}
 				<ChevronRight className="size-3 shrink-0 opacity-50 transition-transform group-open:rotate-90" />
 			</summary>
 			<div className="mt-2 rounded-xl border bg-card p-3 text-xs">
-				<div className="mb-1 font-medium uppercase tracking-wide text-muted-foreground">Input (streaming)</div>
+				<div className="mb-1 font-medium uppercase tracking-wide text-muted-foreground">{tr("Input (streaming)", "输入参数（流式传输中）")}</div>
 				<pre className="max-h-32 overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed">
 					{hasInput ? JSON.stringify(p.input, null, 2) : "…"}
 				</pre>

@@ -17,6 +17,7 @@ import { ChainTableOverlay } from "@/components/chain-table.tsx";
 import { ComposerActions, NodePickerControl } from "@/components/composer-actions";
 import { OPENING_PROMPT_FAILURE } from "@/components/opening-prompt";
 import { SessionStarter } from "@/components/start-session";
+import { useI18n } from "@/components/i18n";
 import type { ChatSettings, GraphSnapshot } from "@/src/core";
 
 /** The draft's pick set (owner round 10): the SAME shape the home pick
@@ -111,6 +112,7 @@ export function DraftShell({
 	 *  Passed as a node so the pick state stays in NewSession. */
 	overlay?: ReactNode;
 }) {
+	const { tr } = useI18n();
 	const controller = useOptionalInteractionLayers();
 	const pathname = usePathname();
 	const bodyRef = useRef<HTMLDivElement>(null);
@@ -178,11 +180,17 @@ export function DraftShell({
 						<Conversation className="h-full min-w-0 flex-1" initial="instant">
 							<ConversationContent className="min-h-full gap-0 p-0">
 								<ConversationEmptyState
-									title={mode === "practice" ? "New practice session" : "New session"}
+									title={mode === "practice" ? tr("New practice session", "新建练习会话") : tr("New session", "新建会话")}
 									description={
 										mode === "practice"
-											? "Pick nodes from your knowledge graph, describe what you want to practice, or bring your own problem."
-											: "The teacher will open by probing what you already know."
+											? tr(
+												"Pick nodes from your knowledge graph, describe what you want to practice, or bring your own problem.",
+												"从你的知识图谱中选择知识点、描述想练习的内容，或直接提供你自己的题目。",
+											)
+											: tr(
+												"The teacher will open by probing what you already know.",
+												"教师会先通过探测了解你已掌握的知识。",
+											)
 									}
 								/>
 							</ConversationContent>
@@ -196,7 +204,7 @@ export function DraftShell({
 									)}
 									setup={setupCta}
 								/>
-								{startError && <p role="alert" className="pointer-events-auto mb-2 text-sm text-destructive">{OPENING_PROMPT_FAILURE}</p>}
+								{startError && <p role="alert" className="pointer-events-auto mb-2 text-sm text-destructive">{tr(OPENING_PROMPT_FAILURE, "无法打开会话，你的消息仍保留在输入框中，请重新发送。")}</p>}
 								<div data-attachment-composer="" className="pointer-events-auto overflow-hidden rounded-2xl border bg-card shadow-lg">
 									<Composer
 										busy={busy}
@@ -212,7 +220,7 @@ export function DraftShell({
 										// input (owner refinement round, 2026-09-24) — no lesson has
 										// started yet, so the composer must not read like one is in
 										// flight.
-										placeholder={mode === "practice" ? "What do you want to practice?" : "What do you want to learn?"}
+										placeholder={mode === "practice" ? tr("What do you want to practice?", "你想练习什么？") : tr("What do you want to learn?", "你想学什么？")}
 									/>
 								</div>
 								<StatsBar
@@ -240,6 +248,7 @@ export function DraftShell({
 }
 
 export function NewSession({ initialConfigured, mode = "teach" }: { initialConfigured: boolean; mode?: "teach" | "practice" }) {
+	const { tr } = useI18n();
 	const router = useRouter();
 	const [text, setText] = useState("");
 	/* The draft MIRROR ("nothing gets lost" round, 2026-10-01): the shell's
@@ -376,7 +385,7 @@ export function NewSession({ initialConfigured, mode = "teach" }: { initialConfi
 								onClick={() => setSetupOpen(true)}
 								className="rounded-sm border border-border bg-card px-3 py-1.5 font-ui text-xs text-foreground transition-colors hover:border-muted-foreground/50 hover:bg-accent cursor-pointer"
 							>
-								Set up your models
+								{tr("Set up your models", "配置模型")}
 							</button>
 						)
 					)

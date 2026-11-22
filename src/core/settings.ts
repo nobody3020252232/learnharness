@@ -38,6 +38,7 @@ import { isSearchEngineId, type SearchEngineId } from "./search.ts";
 import { isDictationLanguage, type DictationLanguage } from "./dictation.ts";
 import { parseFileAccessSettings, type FileAccessSettings } from "./file-access.ts";
 import { COLOR_OVERRIDE_KEYS, isThemeId, type AppearanceColorOverrides } from "./themes.ts";
+import { DEFAULT_UI_LOCALE, isUiLocale, type UiLocale } from "./i18n.ts";
 
 /** The schema version this code understands. Bump ONLY for breaking shape
  *  changes (a field renamed/meaning changed); pure additions never bump. */
@@ -398,6 +399,8 @@ export interface MdRenderingSettings {
 
 /** Appearance settings — theme, color overrides, type, markdown emphasis. */
 export interface AppearanceSettings {
+	/** Interface display language ("zh-CN" | "en"). Absent = DEFAULT_UI_LOCALE ("zh-CN"). */
+	locale?: UiLocale;
 	/** The active theme id (core/themes.ts presets or a custom file under
 	 *  THEMES_DIR). Absent or gone = "default". The theme declares the
 	 *  mode (dark/light) — the old `mode`/`lightBackground` keys are no
@@ -545,6 +548,7 @@ export interface FactorySettings {
 	general: Required<GeneralSettings>;
 	dictation: Required<DictationSettings>;
 	appearance: {
+		locale: UiLocale;
 		theme: string;
 		background: string | null;
 		colors: AppearanceColorOverrides;
@@ -572,6 +576,7 @@ export const FACTORY_SETTINGS: FactorySettings = {
 	general: { autoUpdate: true },
 	dictation: { language: "en" },
 	appearance: {
+		locale: DEFAULT_UI_LOCALE,
 		theme: "default",
 		background: null, // null = the active theme's background
 		colors: {}, // no overrides: every color is the theme's
@@ -814,6 +819,7 @@ function sanitizeMdRendering(raw: unknown): MdRenderingSettings {
 
 function sanitizeAppearance(raw: Record<string, unknown>): AppearanceSettings {
 	const out: AppearanceSettings = {};
+	if (isUiLocale(raw.locale)) out.locale = raw.locale;
 	// Theme wave (2026-11-04): `mode`/`lightBackground` (light-mode wave)
 	// are no longer read — the theme declares the mode. Dropped here like
 	// the graph's dead rungs; the next appearance write flushes them.

@@ -57,8 +57,9 @@ const DATA_DIR = () => path.join(app.getPath("userData"), "data");
 
 // Resolve the saved palette before window creation; renderer reports keep
 // it current after live saves. This helper needs no compiled server bundle.
-const { normalizeAppearance, themeSourceFor, serverDataDir, readAppearance, chromeColors } = require("./appearance-chrome.cjs");
+const { normalizeAppearance, normalizeLocale, themeSourceFor, serverDataDir, readAppearance, readLocale, chromeColors } = require("./appearance-chrome.cjs");
 let appearance = normalizeAppearance(null);
+let uiLocale = normalizeLocale(null);
 
 function applyChrome(win) {
 	if (win.isDestroyed()) return;
@@ -615,51 +616,64 @@ function applyZoom(win, factor) {
 /** macOS needs an application menu with the Edit roles — without one,
  *  Cmd+C/V/A do nothing in the renderer. Everything else stays minimal. */
 function installMenu() {
+	const zh = uiLocale === "zh-CN";
+	const name = app.name || PRODUCT_NAME;
 	const template = [
 		{
-			label: app.name,
+			label: name,
 			submenu: [
-				{ role: "about" },
+				{ role: "about", ...(zh ? { label: `关于 ${name}` } : {}) },
 				// Manual checks report their result in Settings → General.
-				{ label: "Check for Updates…", click: () => checkForUpdatesFromMenu() },
+				{ label: zh ? "检查更新…" : "Check for Updates…", click: () => checkForUpdatesFromMenu() },
 				{ type: "separator" },
-				{ role: "hide" },
-				{ role: "hideOthers" },
+				{ role: "hide", ...(zh ? { label: `隐藏 ${name}` } : {}) },
+				{ role: "hideOthers", ...(zh ? { label: "隐藏其他" } : {}) },
 				{ type: "separator" },
-				{ role: "quit" },
+				{ role: "quit", ...(zh ? { label: `退出 ${name}` } : {}) },
 			],
 		},
-		{ label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
 		{
-			label: "View",
+			label: zh ? "编辑" : "Edit",
 			submenu: [
-				{ role: "reload" },
-				{ role: "toggleDevTools" },
+				{ role: "undo", ...(zh ? { label: "撤销" } : {}) },
+				{ role: "redo", ...(zh ? { label: "重做" } : {}) },
+				{ type: "separator" },
+				{ role: "cut", ...(zh ? { label: "剪切" } : {}) },
+				{ role: "copy", ...(zh ? { label: "复制" } : {}) },
+				{ role: "paste", ...(zh ? { label: "粘贴" } : {}) },
+				{ role: "selectAll", ...(zh ? { label: "全选" } : {}) },
+			],
+		},
+		{
+			label: zh ? "视图" : "View",
+			submenu: [
+				{ role: "reload", ...(zh ? { label: "重新加载" } : {}) },
+				{ role: "toggleDevTools", ...(zh ? { label: "开发者工具" } : {}) },
 				{ type: "separator" },
 				// OWNED zoom (see applyZoom): the roles change zoomLevel
 				// silently; these broadcast the factor and re-seat the
 				// traffic lights. The renderer's --lh-zoom depends on
 				// hearing every change.
 				{
-					label: "Actual Size",
+					label: zh ? "实际大小" : "Actual Size",
 					accelerator: "CommandOrControl+0",
 					click: () => applyZoom(BrowserWindow.getAllWindows()[0], 1),
 				},
 				{
-					label: "Zoom In",
+					label: zh ? "放大" : "Zoom In",
 					accelerator: "CommandOrControl+Plus",
 					click: () => zoomStep(BrowserWindow.getAllWindows()[0], +1),
 				},
 				{
-					label: "Zoom Out",
+					label: zh ? "缩小" : "Zoom Out",
 					accelerator: "CommandOrControl+-",
 					click: () => zoomStep(BrowserWindow.getAllWindows()[0], -1),
 				},
 				{ type: "separator" },
-				{ role: "togglefullscreen" },
+				{ role: "togglefullscreen", ...(zh ? { label: "切换全屏" } : {}) },
 			],
 		},
-		{ role: "windowMenu" },
+		{ role: "windowMenu", ...(zh ? { label: "窗口" } : {}) },
 	];
 	Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -681,10 +695,12 @@ async function main() {
 
 	// Read the same record/custom theme the server uses before constructing
 	// any native window, including the external development shell.
-	appearance = readAppearance(serverDataDir({
+	const bootDataDir = serverDataDir({
 		devUrl: process.env.LH_DEV_URL, env: process.env,
 		packagedDataDir: DATA_DIR(), repoRoot: path.join(__dirname, ".."),
-	}));
+	});
+	appearance = readAppearance(bootDataDir);
+	uiLocale = readLocale(bootDataDir);
 	nativeTheme.themeSource = themeSourceFor(appearance.mode);
 
 	// Dev mode: point at a running `next dev` server (LH_DEV_URL) — no
@@ -747,7 +763,12 @@ async function main() {
 	// child is the only recipient of credential leases over inherited IPC.
 	ipcMain.handle("lh:chatgpt:control", async (event, command) => {
 		if (!trustedAppWindows.has(BrowserWindow.fromWebContents(event.sender)) || !trustedSender(event, new URL(url).origin, BrowserWindow)) return { error: "Untrusted desktop request." };
-		if (!chatgpt || !serverProcess?.connected) return { available: false, pending: false, activeId: null, accounts: [], error: "ChatGPT sign-in requires the desktop app's private server connection. Browser-only and externally launched development servers keep API-key connections." };
+		if (!chatgpt || !serverProcess?.connected) return {
+			available: false, pending: false, activeId: null, accounts: [],
+			error: uiLocale === "zh-CN"
+				? "ChatGPT 登录需要桌面应用的私有服务器连接。仅浏览器模式和外部启动的开发服务器仅支持 API 密钥连接。"
+				: "ChatGPT sign-in requires the desktop app's private server connection. Browser-only and externally launched development servers keep API-key connections.",
+		};
 		return chatGPTControl(command, chatgpt);
 	});
 
@@ -755,7 +776,11 @@ async function main() {
 		if (!trustedAppWindows.has(BrowserWindow.fromWebContents(event.sender)) || !trustedSender(event, new URL(url).origin, BrowserWindow)) throw new Error("Untrusted desktop request.");
 		if (!subscriptions || !serverProcess?.connected) {
 			if (command?.op === "status") return [];
-			throw new Error("Subscription sign-in requires the desktop app's private server connection.");
+			throw new Error(
+				uiLocale === "zh-CN"
+					? "订阅登录需要桌面应用的私有服务器连接。"
+					: "Subscription sign-in requires the desktop app's private server connection.",
+			);
 		}
 		return subscriptionControl(command, subscriptions);
 	});
@@ -818,6 +843,13 @@ async function main() {
 		appearance = normalizeAppearance(next);
 		nativeTheme.themeSource = themeSourceFor(appearance.mode);
 		for (const win of BrowserWindow.getAllWindows()) applyChrome(win);
+	});
+	ipcMain.on("lh:locale", (event, next) => {
+		if (!trustedAppWindows.has(BrowserWindow.fromWebContents(event.sender)) || !trustedSender(event, new URL(url).origin, BrowserWindow)) return;
+		const normalized = normalizeLocale(next);
+		if (normalized === uiLocale) return;
+		uiLocale = normalized;
+		installMenu();
 	});
 	reopenWindow = () => { chatgpt?.resume(); subscriptions?.resume(); return createWindow(url); };
 	app.on("activate", () => {

@@ -28,6 +28,19 @@ function normalizeAppearance(a) {
 	};
 }
 
+function normalizeLocale(value) {
+	return value === "en" ? "en" : "zh-CN";
+}
+
+function readLocale(dataDir) {
+	try {
+		const settings = JSON.parse(fs.readFileSync(path.join(dataDir, "settings.json"), "utf8"));
+		return normalizeLocale(settings?.appearance?.locale);
+	} catch {
+		return "zh-CN";
+	}
+}
+
 /** Preserve Electron's pre-theme OS-following menus/dialogs for dark.
  * The app/window palette itself remains pinned to the selected theme. */
 function themeSourceFor(mode) {
@@ -79,4 +92,4 @@ function chromeColors(appearance) {
 	return { color, symbolColor: contrast("#e5e5e5") > contrast("#1a1a1a") ? "#e5e5e5" : "#1a1a1a" };
 }
 
-module.exports = { PRESET_APPEARANCE, COLOR_KEYS, normalizeAppearance, themeSourceFor, serverDataDir, readAppearance, chromeColors };
+module.exports = { PRESET_APPEARANCE, COLOR_KEYS, normalizeAppearance, normalizeLocale, themeSourceFor, serverDataDir, readAppearance, readLocale, chromeColors };

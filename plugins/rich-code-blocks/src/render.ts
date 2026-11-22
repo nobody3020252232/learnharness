@@ -2,6 +2,7 @@ import type { PluginCodeBlockProps } from "learnharness-plugin-api";
 import { CACHE_BYTES, CACHE_ENTRIES, LABELS, checkSource, checkSvgSize, type Language } from "./contract.ts";
 import { sanitizeSvg } from "./svg.ts";
 import { TexRunner } from "./tex-runner.ts";
+import { familyLabel, tr } from "./i18n.ts";
 
 export class RenderCache {
   private entries = new Map<string, { svg: string; bytes: number }>();
@@ -31,7 +32,7 @@ async function smiles(source: string, signal: AbortSignal): Promise<string> {
   signal.throwIfAborted();
   // One molecule, not a reaction, disconnected fragment list, or multiline prose.
   const molecule = source.trim();
-  if (/[\s.>]/.test(molecule)) throw new Error("Use one SMILES molecule per block, without prose or reaction notation.");
+  if (/[\s.>]/.test(molecule)) throw new Error(tr("Use one SMILES molecule per block, without prose or reaction notation.", "每个代码块仅支持一个 SMILES 分子式，不包含正文说明或反应式。"));
   return new Promise((resolve, reject) => SmilesDrawer.parse(molecule, tree => {
     try {
       const drawer = new SmilesDrawer.SvgDrawer({ scale: 1 });
@@ -54,13 +55,13 @@ async function abc(source: string, signal: AbortSignal): Promise<string> {
   const { default: renderAbc } = await import("abcjs/src/api/abc_tunebook_svg.js");
   signal.throwIfAborted();
   for (const header of ["X", "M", "L", "K"]) if (!new RegExp(`^${header}:[\\t ]*\\S`, "m").test(source)) {
-    throw new Error("ABC requires X:, M:, L: and K: headers.");
+    throw new Error(tr("ABC requires X:, M:, L: and K: headers.", "ABC 乐谱需要包含 X:、M:、L: 和 K: 头部字段。"));
   }
-  if ((source.match(/^X:/gm) ?? []).length !== 1) throw new Error("Use one ABC tune per block.");
+  if ((source.match(/^X:/gm) ?? []).length !== 1) throw new Error(tr("Use one ABC tune per block.", "每个代码块仅支持一首 ABC 曲谱。"));
   const target = document.createElement("div");
   const tunes = renderAbc(target, source, { staffwidth: 700, add_classes: false, selectTypes: false, dragging: false });
   const svg = target.querySelector("svg");
-  if (tunes.length !== 1 || !svg || !svg.querySelector("path")) throw new Error("ABC did not produce a score.");
+  if (tunes.length !== 1 || !svg || !svg.querySelector("path")) throw new Error(tr("ABC did not produce a score.", "ABC 未生成有效乐谱。"));
   return new XMLSerializer().serializeToString(svg);
 }
 
@@ -102,11 +103,15 @@ export class RenderService {
         else if (language === "tikz") {
           this.tex ??= new TexRunner(new URL("./assets/tex-worker.js", import.meta.url), new URL("./assets/tex/", import.meta.url));
           output = await this.tex.render(block.source, controller.signal);
-        } else throw new Error("Unsupported code-block language.");
+        } else throw new Error(tr("Unsupported code-block language.", "不支持的代码块语言。"));
       }
       if (this.disposed || controller.signal.aborted) { dispose(); return dispose; }
       checkSvgSize(output);
-      const label = language === "smiles" ? LABELS.chemicalStructures : language === "abc" ? LABELS.musicalNotation : LABELS.technicalDiagrams;
+      const label = language === "smiles"
+        ? familyLabel("chemicalStructures", LABELS.chemicalStructures)
+        : language === "abc"
+          ? familyLabel("musicalNotation", LABELS.musicalNotation)
+          : familyLabel("technicalDiagrams", LABELS.technicalDiagrams);
       const safe = sanitizeSvg(output, label, language);
       this.cache.set(key, output);
       root.classList.add("rich-code-blocks--rendered");

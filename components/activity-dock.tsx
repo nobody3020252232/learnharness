@@ -7,6 +7,7 @@ import type { CallUsage, JobKind, JobRecord } from "@/src/core";
 import { isModelsRefusal, isProviderKeyRefusal, subscriptionLabel, subscriptionLabels } from "@/src/core";
 import { formatTokens, planCostLabel } from "@/components/usage-format";
 import { useServerEvent, useServerResync } from "@/components/server-events";
+import { useI18n } from "@/components/i18n";
 
 /**
  * THE BACKGROUND-AGENTS SECTION (owner, sidebar round — the successor of
@@ -322,6 +323,7 @@ const KIND_ICON: Record<JobKind, typeof SearchIcon> = {
 type AbortState = "pending" | "failed";
 
 export function ActivitySection({ feed: feedProp }: { feed?: ActivityFeed }) {
+	const { tr } = useI18n();
 	const ctx = useContext(ActivityContext);
 	const feed = feedProp ?? ctx.feed;
 	const refresh = ctx.refresh;
@@ -380,9 +382,9 @@ export function ActivitySection({ feed: feedProp }: { feed?: ActivityFeed }) {
 		<section data-testid="activity-section" className="border-t border-border px-3 pb-3 pt-2">
 			<div className="mb-1 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground/70">
 				<ActivityIcon className="size-3" />
-				Background agents
+				{tr("Background agents", "后台代理")}
 				{blobs.length > 0 && (
-					<span className="ml-auto tabular-nums" data-testid="activity-total-cost" title="Total running cost (inferred)">
+					<span className="ml-auto tabular-nums" data-testid="activity-total-cost" title={tr("Total running cost (inferred)", "运行中任务总费用（估算）")}>
 						{planCostLabel(totalCost, subscriptionLabels(blobs.map((blob) => blob.model)))}
 				</span>
 				)}
@@ -422,21 +424,50 @@ function ActivityBlobRow({
 	abortState: AbortState | undefined;
 	onAbort: () => void;
 }) {
+	const { tr, isZh } = useI18n();
 	const Icon = blob.process === "extraction" ? WaypointsIcon : (blob.jobKind && KIND_ICON[blob.jobKind]) || BotIcon;
+	const translatePhase = (phase: string) => {
+		if (!isZh) return phase;
+		switch (phase) {
+			case "queued": return "排队中";
+			case "extracting": return "提取中";
+			case "auditing": return "核验中";
+			case "merging": return "合并中";
+			case "embedding": return "向量化中";
+			case "settling": return "布局收敛中";
+			case "running": return "运行中";
+			default: return phase;
+		}
+	};
+	const translateActivity = (activity: string) => {
+		if (!isZh) return activity;
+		switch (activity) {
+			case "needs model setup": return "需要先配置模型";
+			case "needs a provider key": return "需要先配置提供商密钥";
+			case "queued": return "排队中";
+			case "running": return "运行中";
+			case "failed": return "失败";
+			default: return activity;
+		}
+	};
+	const displayTitle = blob.process === "job" && blob.jobKind === "plugin" && blob.title === "Plugin worker"
+		? tr("Plugin worker", "插件任务")
+		: blob.title;
+	const displayActivity = translateActivity(blob.activity);
 	const label =
 		blob.process === "extraction"
-			? `Extraction — ${blob.phase ?? "running"}`
+			? tr("Extraction — {phase}", "知识提取 — {phase}", { phase: translatePhase(blob.phase ?? "running") })
 			: blob.jobKind === "research"
-				? "Researcher"
+				? tr("Researcher", "资料研究员")
 				: blob.jobKind === "demo"
-					? "Demo builder"
+					? tr("Demo builder", "交互演示构建器")
 					: blob.jobKind === "visual"
-						? "Figure maker"
+						? tr("Figure maker", "图解生成器")
 						: blob.jobKind === "pdf"
-							? "PDF reader"
+							? tr("PDF reader", "PDF 阅读器")
 							: blob.jobKind === "plugin"
-								? "Plugin worker"
-								: "Sub-agent";
+								? tr("Plugin worker", "插件任务")
+								: tr("Sub-agent", "子代理");
 	return (
 		<div
 			data-testid={`activity-blob-${blob.process}`}
@@ -452,12 +483,12 @@ function ActivityBlobRow({
 				>
 					<Icon className="size-3.5 shrink-0 text-muted-foreground" />
 					<span className="min-w-0 flex-1">
-						<span className="block truncate font-medium text-card-foreground" title={blob.title}>
-							{blob.title}
+						<span className="block truncate font-medium text-card-foreground" title={displayTitle}>
+							{displayTitle}
 						</span>
-						{blob.activity ? (
-							<span className="block truncate text-muted-foreground" title={blob.activity}>
-								{blob.activity}
+						{displayActivity ? (
+							<span className="block truncate text-muted-foreground" title={displayActivity}>
+								{displayActivity}
 							</span>
 						) : (
 							<span className="block truncate text-muted-foreground/80">{label}</span>
@@ -476,8 +507,8 @@ function ActivityBlobRow({
 					data-testid="activity-abort"
 					onClick={onAbort}
 					disabled={abortState !== undefined}
-					title={abortState === "failed" ? "Abort failed — try again" : "End this background process"}
-					aria-label={`End ${label} in ${blob.title}`}
+					title={abortState === "failed" ? tr("Abort failed — try again", "中止失败 — 请重试") : tr("End this background process", "终止此后台进程")}
+					aria-label={tr("End {label} in {title}", "终止 {title} 中的{label}", { label, title: displayTitle })}
 					className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
 				>
 					<SquareIcon className="size-3" />
@@ -497,15 +528,15 @@ function ActivityBlobRow({
 						</span>
 					</div>
 					<div className="flex flex-col gap-1 text-muted-foreground">
-						{blob.activity && <div className="break-words">{blob.activity}</div>}
+						{displayActivity && <div className="break-words">{displayActivity}</div>}
 						<div className="flex justify-between gap-2">
-							<span>Cost</span>
+							<span>{tr("Cost", "费用")}</span>
 							<span className="tabular-nums text-card-foreground">
 								{planCostLabel(blob.cost, subscriptionLabel(blob.model))}
 							</span>
 						</div>
 						<div className="flex justify-between gap-2">
-							<span>Context</span>
+							<span>{tr("Context", "上下文")}</span>
 							<span className="tabular-nums text-card-foreground" data-testid="activity-blob-context">
 								{blob.context === null
 									? "—"
@@ -514,25 +545,25 @@ function ActivityBlobRow({
 						</div>
 						{blob.model && (
 							<div className="flex justify-between gap-2">
-								<span>Model</span>
+								<span>{tr("Model", "模型")}</span>
 								<span className="truncate text-card-foreground">{blob.model}</span>
 							</div>
 						)}
 						{blob.steps !== undefined && (
 							<div className="flex justify-between gap-2">
-								<span>Steps</span>
+								<span>{tr("Steps", "步骤数")}</span>
 								<span className="tabular-nums text-card-foreground">{blob.steps}</span>
 							</div>
 						)}
 						{blob.chatId && (
 							<a href={`/chat/${blob.chatId}`} className="text-primary hover:underline">
-								Open session →
+								{tr("Open session →", "打开会话 →")}
 							</a>
 						)}
 					</div>
 					<div className="mt-2 text-muted-foreground/80">
-					{abortState === "failed" && "Abort failed — try again"}
-					{abortState === "pending" && "Stopping…"}
+					{abortState === "failed" && tr("Abort failed — try again", "中止失败 — 请重试")}
+					{abortState === "pending" && tr("Stopping…", "正在停止…")}
 				</div>
 				</div>
 			)}

@@ -9,13 +9,15 @@ import { SettingsMenuTrigger, SettingsRow } from "@/components/settings/controls
 import { SearchMenuList } from "@/components/settings/search-menu-list";
 import { useDictationActive } from "@/components/dictation-state";
 import { useDictationLanguage } from "@/components/dictation-preference";
+import { useI18n } from "@/components/i18n";
 
 type LanguagePreference = ReturnType<typeof useDictationLanguage>;
 
 export function DictationLanguageSetting() {
+	const { tr } = useI18n();
 	const preference = useDictationLanguage();
 	const active = useDictationActive();
-	return <SettingsRow label="Language" testid="row-dictation-language" dimmed={active}>
+	return <SettingsRow label={tr("Language", "语言")} testid="row-dictation-language" dimmed={active}>
 		<DictationLanguagePicker preference={preference} disabled={active} />
 	</SettingsRow>;
 }
@@ -24,6 +26,7 @@ function DictationLanguagePicker({ preference, disabled }: {
 	preference: LanguagePreference;
 	disabled: boolean;
 }) {
+	const { tr, tError } = useI18n();
 	const { language, saving, error, load, save } = preference;
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -52,12 +55,12 @@ function DictationLanguagePicker({ preference, disabled }: {
 	};
 
 	return <>
-		<Hint label={error ?? `Dictation language: ${label}`} side="top">
+		<Hint label={error ? tError(error) : tr("Dictation language: {label}", "语音听写语言：{label}", { label })} side="top">
 			<SettingsMenuTrigger
 				ref={triggerRef}
 				value={label}
 				data-testid="dictation-language"
-				aria-label={`Dictation language: ${label}`}
+				aria-label={tr("Dictation language: {label}", "语音听写语言：{label}", { label })}
 				aria-expanded={open && !disabled}
 				disabled={disabled || saving}
 				onClick={() => {
@@ -82,7 +85,7 @@ function DictationLanguagePicker({ preference, disabled }: {
 					event.stopPropagation();
 				}
 			}}>
-				{error && <div role="alert" className="mb-1.5 text-destructive">{error}</div>}
+				{error && <div role="alert" className="mb-1.5 text-destructive">{tError(error)}</div>}
 				<SearchMenuList
 					items={DICTATION_LANGUAGES}
 					itemKey={(item) => item.code}
@@ -93,9 +96,9 @@ function DictationLanguagePicker({ preference, disabled }: {
 					searchTestid="dictation-language-search"
 					listTestid="dictation-language-list"
 					optionTestid={(item) => `dictation-language-${item.code}`}
-					ariaLabel="Search dictation languages"
-					placeholder="Search languages…"
-					empty="No languages match."
+					ariaLabel={tr("Search dictation languages", "搜索听写语言")}
+					placeholder={tr("Search languages…", "搜索语言…")}
+					empty={tr("No languages match.", "未找到匹配的语言。")}
 					renderItem={(item) => <span className="text-card-foreground">{item.label}</span>}
 				/>
 			</div>

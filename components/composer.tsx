@@ -5,6 +5,7 @@ import { ArrowRightIcon, CornerDownLeftIcon, SquareIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PathInput } from "@/components/path-input";
 import { AttachFilesButton } from "@/components/attach-files-button";
+import { useI18n } from "@/components/i18n";
 import { useOptionalInteractionLayers } from "./interaction-layers";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
 
@@ -114,7 +115,7 @@ export function Composer({
 	autoFocus,
 	inputRef,
 	onEscape,
-	placeholder = "Ask, answer, or steer the lesson…",
+	placeholder,
 	nextProblem = false,
 	onNext,
 	defaultDropTarget = true,
@@ -148,6 +149,8 @@ export function Composer({
 	defaultDropTarget?: boolean;
 	fileInsertion?: boolean;
 }) {
+	const { tr } = useI18n();
+	const resolvedPlaceholder = placeholder ?? tr("Ask, answer, or steer the lesson…", "提问、作答或引导课程方向…");
 	const controller = useOptionalInteractionLayers();
 	const act = () => {
 		const action = enterAction({ busy, canSend, nextProblem });
@@ -193,7 +196,7 @@ export function Composer({
 						act();
 					}
 				}}
-				placeholder={placeholder}
+				placeholder={resolvedPlaceholder}
 				autoFocus={autoFocus}
 				className="field-sizing-content lh-input max-h-48 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 outline-none placeholder:text-muted-foreground"
 			/>
@@ -216,16 +219,16 @@ export function Composer({
 					<button
 						type="submit"
 						data-testid="next-problem-button"
-						aria-label="Next problem"
+						aria-label={tr("Next problem", "下一题")}
 						className="flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-[10px] bg-success px-4 font-ui text-xs font-medium uppercase tracking-wide text-background transition-colors hover:bg-success/85"
 					>
-						Next problem
+						{tr("Next problem", "下一题")}
 						<ArrowRightIcon className="size-4" />
 					</button>
 				) : (
 					<button
 						type="submit"
-						aria-label={busy && !canSend ? "Stop" : "Send"}
+						aria-label={busy && !canSend ? tr("Stop", "停止") : tr("Send", "发送")}
 						disabled={!busy && !canSend}
 						className={cn(
 							"flex size-10 shrink-0 items-center justify-center rounded-[10px] transition-colors",

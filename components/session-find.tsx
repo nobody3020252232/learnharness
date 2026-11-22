@@ -7,6 +7,7 @@ import {
 	sameSessionRange, sessionFindRanges, sessionRangeIdentity, type SessionRangeIdentity,
 } from "@/components/session-find-dom";
 import { scrollSessionTarget, type SessionScrollContext } from "@/components/session-navigation";
+import { useI18n } from "@/components/i18n";
 import { useOptionalInteractionLayers } from "./interaction-layers";
 import { hasLegacyInteractionForeground, isInteractionScopeEligible } from "./plugin-input-focus";
 
@@ -60,6 +61,7 @@ export function SessionFind({ scopeRef, scrollContextRef }: {
 	scopeRef: RefObject<HTMLDivElement | null>;
 	scrollContextRef: RefObject<SessionScrollContext | null>;
 }) {
+	const { tr } = useI18n();
 	const controller = useOptionalInteractionLayers();
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
@@ -159,7 +161,7 @@ export function SessionFind({ scopeRef, scrollContextRef }: {
 	return (
 		<div
 			role="search"
-			aria-label="Session Find"
+			aria-label={tr("Session Find", "会话内查找")}
 			data-testid="session-find"
 			className="lh-no-drag flex h-10 shrink-0 items-center gap-2 border-b border-border px-6 font-ui text-sm"
 			onKeyDown={(event) => {
@@ -180,8 +182,8 @@ export function SessionFind({ scopeRef, scrollContextRef }: {
 			<SearchIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
 			<input
 				ref={inputRef}
-				aria-label="Find in session"
-				placeholder="Find in session…"
+				aria-label={tr("Find in session", "在会话中查找")}
+				placeholder={tr("Find in session…", "在会话中查找…")}
 				value={query}
 				onChange={(event) => setQuery(event.target.value)}
 				spellCheck={false}
@@ -190,15 +192,15 @@ export function SessionFind({ scopeRef, scrollContextRef }: {
 			<output aria-live="polite" data-testid="session-find-count" className="shrink-0 text-xs tabular-nums text-muted-foreground">
 				{query ? `${result.index + 1}/${result.count}` : ""}
 			</output>
-			<button type="button" aria-label="Previous match" title="Previous match (Shift+Enter)" className={buttonClass}
+			<button type="button" aria-label={tr("Previous match", "上一个匹配项")} title={tr("Previous match (Shift+Enter)", "上一个匹配项 (Shift+Enter)")} className={buttonClass}
 				disabled={!result.count} onMouseDown={(event) => event.preventDefault()} onClick={() => step(-1)}>
 				<ChevronUpIcon className="size-4" aria-hidden />
 			</button>
-			<button type="button" aria-label="Next match" title="Next match (Enter)" className={buttonClass}
+			<button type="button" aria-label={tr("Next match", "下一个匹配项")} title={tr("Next match (Enter)", "下一个匹配项 (Enter)")} className={buttonClass}
 				disabled={!result.count} onMouseDown={(event) => event.preventDefault()} onClick={() => step(1)}>
 				<ChevronDownIcon className="size-4" aria-hidden />
 			</button>
-			<button type="button" aria-label="Close Find" title="Close Find (Esc)" className={buttonClass} onClick={close}>
+			<button type="button" aria-label={tr("Close Find", "关闭查找")} title={tr("Close Find (Esc)", "关闭查找 (Esc)")} className={buttonClass} onClick={close}>
 				<XIcon className="size-4" aria-hidden />
 			</button>
 		</div>

@@ -10,6 +10,7 @@ import { MermaidError } from "@/components/mermaid-error";
 import { Hint } from "@/components/ui/hint";
 import { SvgImage } from "@/components/artifacts/svg-image";
 import { InteractionLayerOwner, useInteractionLayer } from "./interaction-layers";
+import { useI18n } from "@/components/i18n";
 
 /**
  * SESSION-SCOPED OVERLAYS (owner wave, 2026-09-19): the "fullscreen"
@@ -95,6 +96,7 @@ export function MermaidOverlay({
 	inverted?: boolean;
 	onClose: () => void;
 }) {
+	const { tr } = useI18n();
 	// ── chart render (own instance, own ids); figure mode uses the raw svg ──
 	const [svg, setSvg] = useState<string | null>(rawSvg ?? null);
 	const [error, setError] = useState<string | null>(null);
@@ -145,8 +147,9 @@ export function MermaidOverlay({
 	}, []);
 
 	const box = useMemo(() => image ? { w: image.width, h: image.height } : svg ? chartSize(svg) : { w: 0, h: 0 }, [svg, image]);
-	const mediaName = image ? "Image" : "Diagram";
-	const fitLabel = image ? "Fit image to view" : "Fit diagram to view";
+	const mediaName = image ? tr("Image", "图片") : tr("Diagram", "图表");
+	const fitLabel = image ? tr("Fit image to view", "适应视图大小") : tr("Fit diagram to view", "适应视图大小");
+	const focusLabel = image ? tr("Image focus", "图片聚焦视图") : tr("Diagram focus", "图表聚焦视图");
 	const fitZoom = useMemo(() => fitZoomFor(box, size), [box, size]);
 
 	const [view, setView] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
@@ -232,16 +235,16 @@ export function MermaidOverlay({
 			// Ranked inside the session's bounded view stack, below app modals.
 			style={{ zIndex: 100 + layer.order }}
 			role="region"
-			aria-label={`${mediaName} focus`}
+			aria-label={focusLabel}
 		>
 			<div className="mb-2 flex items-center gap-2">
 				<span className="text-sm font-medium">{mediaName}</span>
-				<span className="text-xs text-muted-foreground">from this lesson</span>
-				<Hint label="Close" binding="escape" side="left">
+				<span className="text-xs text-muted-foreground">{tr("from this lesson", "来自本节课")}</span>
+				<Hint label={tr("Close", "关闭")} binding="escape" side="left">
 <button
 					type="button"
 					onClick={onClose}
-					aria-label="Close"
+					aria-label={tr("Close", "关闭")}
 					data-testid="mermaid-overlay-close"
 					className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 				>
@@ -289,7 +292,7 @@ export function MermaidOverlay({
 							{image ? (
 								// Reuse the figure viewport without re-encoding or inverting raster bytes.
 								// eslint-disable-next-line @next/next/no-img-element
-								<img src={image.src} alt="Submitted image" draggable={false} className="block h-auto w-full" />
+								<img src={image.src} alt={tr("Submitted image", "已提交的图片")} draggable={false} className="block h-auto w-full" />
 							) : rawSvg !== undefined ? (
 								<div
 									data-lh-overlay-chart
@@ -307,12 +310,12 @@ export function MermaidOverlay({
 							)}
 						</div>
 						<div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between p-2">
-							<span className="text-xs text-muted-foreground/60">Drag to pan · scroll to zoom</span>
+							<span className="text-xs text-muted-foreground/60">{tr("Drag to pan · scroll to zoom", "拖动平移 · 滚轮缩放")}</span>
 							<div className="flex gap-1">
-								<Hint label="Zoom out" side="bottom">
+								<Hint label={tr("Zoom out", "缩小")} side="bottom">
 <button
 									type="button"
-									aria-label="Zoom out"
+									aria-label={tr("Zoom out", "缩小")}
 									onClick={() => stepZoom(1 / 1.25)}
 									className="pointer-events-auto flex size-7 items-center justify-center rounded-md border border-border/70 bg-card/80 text-muted-foreground backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
 								>
@@ -329,10 +332,10 @@ export function MermaidOverlay({
 									<MaximizeIcon className="size-3.5" />
 								</button>
 </Hint>
-								<Hint label="Zoom in" side="bottom">
+								<Hint label={tr("Zoom in", "放大")} side="bottom">
 <button
 									type="button"
-									aria-label="Zoom in"
+									aria-label={tr("Zoom in", "放大")}
 									onClick={() => stepZoom(1.25)}
 									className="pointer-events-auto flex size-7 items-center justify-center rounded-md border border-border/70 bg-card/80 text-muted-foreground backdrop-blur transition-colors hover:bg-accent hover:text-foreground"
 								>
@@ -345,7 +348,7 @@ export function MermaidOverlay({
 				) : (
 					<div className="flex h-full items-center justify-center gap-2 text-sm text-muted-foreground">
 						<span className="inline-block size-4 animate-spin rounded-full border border-current border-b-2" />
-						Rendering diagram…
+						{tr("Rendering diagram…", "正在渲染图表…")}
 					</div>
 				)}
 			</div>

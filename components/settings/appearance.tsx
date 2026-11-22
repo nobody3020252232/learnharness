@@ -47,6 +47,7 @@ import {
 export function resolveAppearance(delta: AppearanceSettings | undefined) {
 	const f = FACTORY_SETTINGS.appearance;
 	return {
+		locale: delta?.locale ?? f.locale,
 		theme: delta?.theme ?? f.theme,
 		background: delta?.background ?? f.background,
 		colors: delta?.colors ?? f.colors,
@@ -184,7 +185,13 @@ export function AppearanceProvider({
 		const root = document.documentElement;
 		root.classList.toggle("dark", mode === "dark");
 		root.classList.toggle("light", mode === "light");
-	}, [mode, initialTheme.mode]);
+		root.lang = appearance.locale;
+	}, [mode, initialTheme.mode, appearance.locale]);
+
+	useEffect(() => {
+		window.dispatchEvent(new CustomEvent("lh:locale-change", { detail: appearance.locale }));
+		window.lh?.setLocale?.(appearance.locale);
+	}, [appearance.locale]);
 
 	// The vars apply on every change — stringified as the change signal.
 	const vars = useMemo(() => appearanceVars(appearance, activeTheme), [appearance, activeTheme]);

@@ -12,6 +12,7 @@ import { ToolContentResponse } from "@/components/ai-elements/message";
 import type { QuestionAnswerData } from "@/src/core";
 import { answeredOptionLetters, answerForPresentation, parseAskInput, parseQuizInput } from "@/src/core";
 import { useAppearance } from "@/components/settings/appearance";
+import { useI18n } from "@/components/i18n";
 import { questionCardLabel, questionCardStandIn } from "@/components/question-dock";
 import {
 	ANSWER_COLUMN_INSET_CSS,
@@ -41,6 +42,7 @@ function scrollParent(el: HTMLElement): HTMLElement | null {
  * the explanation, with NO verdict chips (owner ruling 2026-09-27).
  */
 export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answer: QuestionAnswerData; input?: unknown; toolCallId?: string }) {
+	const { tr, locale } = useI18n();
 	const answer = answerForPresentation(savedAnswer, input);
 	const optionLetters = answeredOptionLetters(savedAnswer, input);
 	const [whyOpen, setWhyOpen] = useState(false); // the tucked explanation (predictions, owner 2026-10-03)
@@ -92,7 +94,7 @@ export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answe
 		? { available: cardInner, base: geometry.base, floor: geometry.floor, key: fontKey }
 		: null;
 	const multiSelect = (answer.kind === "quiz" ? parseQuizInput(input)?.multiSelect : parseAskInput(input)?.multiSelect) ?? false;
-	const label = questionCardLabel(answer.tool, answer.kind, answer.questionType);
+	const label = questionCardLabel(answer.tool, answer.kind, answer.questionType, locale);
 	const layout = useQuestionLayout({
 		cacheId: `answered|${toolCallId ?? ""}`,
 		request,
@@ -114,7 +116,7 @@ export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answe
 				context: detailsRef.current,
 				options: labels,
 				optionLetters: answer.options?.map(({ index }) => optionLetters.get(index)),
-			});
+			}, locale);
 			return { root: live.root, ...standIn, media: { question: live.question, options: live.options } };
 		},
 	});
@@ -126,7 +128,7 @@ export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answe
 	if (answer.dismissed) {
 		return (
 			<div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
-				<span className="font-medium">{answer.questionText}</span> — skipped
+				<span className="font-medium">{answer.questionText}</span> — {tr("skipped", "已跳过")}
 			</div>
 		);
 	}
@@ -153,7 +155,7 @@ export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answe
 		    ThinkingBlock, instead of an inset inside the answer. Same muted
 		    rail as before; the label is now plain "Your thinking". */}
 		{(answer.readingThinking || answer.images?.readingThinking?.length) && (
-			<ThinkingBlock testId="reading-thinking-block" label="YOUR THINKING" text={answer.readingThinking ?? ""} images={answer.images?.readingThinking} defaultOpen />
+			<ThinkingBlock testId="reading-thinking-block" label={tr("YOUR THINKING", "你的思考")} text={answer.readingThinking ?? ""} images={answer.images?.readingThinking} defaultOpen />
 		)}
 		{/* [&>*:last-child]:mb-0 (owner round, 2026-10-07): on ask cards the
 		    thinking row is the last child — its my-3 stacked with the card's
@@ -178,11 +180,11 @@ export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answe
 				{label}
 				{isQuiz &&
 					(answer.dontKnow ? (
-						<StatusBadge text="didn't know" />
+						<StatusBadge text={tr("didn't know", "不知道")} />
 					) : answer.correct ? (
-						<StatusBadge text="correct" color="var(--lh-success)" />
+						<StatusBadge text={tr("correct", "正确")} color="var(--lh-success)" />
 					) : (
-						<StatusBadge text="incorrect" color="var(--lh-error)" />
+						<StatusBadge text={tr("incorrect", "错误")} color="var(--lh-error)" />
 					))}
 			</div>
 			<div ref={questionTextRef} className="mb-3 font-medium">
@@ -282,7 +284,7 @@ export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answe
 				</div>
 			)}
 			{answer.dontKnow && isQuiz && (
-				<div className="mt-2 text-sm text-muted-foreground">Answered “I don't know”.</div>
+				<div className="mt-2 text-sm text-muted-foreground">{tr("Answered “I don't know”.", "回答了「我不知道」。")}</div>
 			)}
 			</div>
 			</div>
@@ -294,7 +296,7 @@ export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answe
 				    the accent lift read too light); rail only, heights identical. */
 				<ThinkingBlock
 					testId="your-thinking"
-					label="YOUR THINKING"
+					label={tr("YOUR THINKING", "你的思考")}
 					text={answer.thinking ?? answer.note ?? ""}
 					images={answer.images?.thinking}
 					inCard
@@ -315,11 +317,11 @@ export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answe
 						onClick={() => setWhyOpen((v) => !v)}
 						className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
 					>
-						{whyOpen ? "Hide why" : "Why"}
+						{whyOpen ? tr("Hide why", "收起解析") : tr("Why", "解析")}
 					</button>
 					{whyOpen && (
 						<div className="mt-1.5 rounded-lg bg-muted py-2 text-sm text-foreground/50">
-							<span className="font-medium text-muted-foreground">Why: </span>
+							<span className="font-medium text-muted-foreground">{tr("Why: ", "解析：")}</span>
 							{/* Keep the first paragraph beside the label, not every paragraph:
 							   later paragraphs must retain their recovered document structure. */}
 							<ToolContentResponse className="inline [&>p:first-child]:inline [&>p:first-child]:m-0">{answer.explanation}</ToolContentResponse>
@@ -333,7 +335,7 @@ export function AnsweredCard({ answer: savedAnswer, input, toolCallId }: { answe
 			    the model's next reply IS the grading. */}
 			{isExplain && answer.committed && (
 				<div className="mt-3 rounded-lg bg-muted py-2 text-sm text-muted-foreground">
-					<span className="font-medium text-foreground">The answer: </span>
+					<span className="font-medium text-foreground">{tr("The answer: ", "参考答案：")}</span>
 					<ToolContentResponse className="inline [&>p:first-child]:inline [&>p:first-child]:m-0">{answer.committed}</ToolContentResponse>
 				</div>
 			)}

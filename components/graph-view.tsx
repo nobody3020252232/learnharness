@@ -72,7 +72,8 @@ import { PluginGraphActions } from "@/components/plugin-chrome";
 import { SettingsSlider as SettingSlider } from "@/components/settings/controls";
 import Link from "next/link";
 import { FileTextIcon, ListTreeIcon, Loader2Icon, SearchIcon, SettingsIcon, WaypointsIcon } from "lucide-react";
-import { graphFolderIds, graphFolderVisibleIds, incrementalLayout, propositionSessionHref, type GraphCostSummary, type GraphNode, type GraphSnapshot } from "@/src/core";
+import { graphFolderIds, graphFolderVisibleIds, incrementalLayout, propositionSessionHref, type GraphCostSummary, type GraphNode, type GraphSnapshot, type UiLocale } from "@/src/core";
+import { useI18n } from "@/components/i18n";
 import { planCostLabel } from "@/components/usage-format";
 import { CLUSTER_LIGHTNESS, GraphCanvasRenderer, type GraphRenderSettings } from "./graph-canvas.ts";
 import { useAppearance } from "@/components/settings/appearance";
@@ -267,13 +268,13 @@ function fmtTokens(n: number | undefined): string {
 }
 
 /** Relative time for run rows: "now", "12m", "3h", "2d". */
-function timeAgo(startedAt: number): string {
+function timeAgo(startedAt: number, locale: UiLocale = "en"): string {
 	const mins = Math.round((Date.now() - startedAt) / 60_000);
-	if (mins < 1) return "now";
-	if (mins < 60) return `${mins}m`;
+	if (mins < 1) return locale === "zh-CN" ? "刚刚" : "now";
+	if (mins < 60) return locale === "zh-CN" ? `${mins}分钟` : `${mins}m`;
 	const hours = Math.round(mins / 60);
-	if (hours < 24) return `${hours}h`;
-	return `${Math.round(hours / 24)}d`;
+	if (hours < 24) return locale === "zh-CN" ? `${hours}小时` : `${hours}h`;
+	return locale === "zh-CN" ? `${Math.round(hours / 24)}天` : `${Math.round(hours / 24)}d`;
 }
 
 /** Run/stage cost at 3 decimals (pipeline pennies are real money at this
@@ -323,6 +324,7 @@ export function displayCostTotals(costs: Pick<GraphCostSummary, "stages">): {
 /** Exported for the chains home (graph rendering off, owner
  * 2026-10-06): the same bare cumulative-dollars pill + panel. */
 export function GraphCostControl({ costs }: { costs: GraphCostSummary }) {
+	const { tr } = useI18n();
 	const [open, setOpen] = useState(false);
 	// Click anywhere outside (or Escape) closes the panel — the root
 	// wraps button + panel, so the toggle itself keeps working.
@@ -333,7 +335,7 @@ export function GraphCostControl({ costs }: { costs: GraphCostSummary }) {
 		<div ref={rootRef} className="relative">
 			<Hint
 				// Trimmed (owner, subtlety round 2026-09-25).
-				label="Graph costs — click for details"
+				label={tr("Graph costs — click for details", "图谱费用 — 点击查看详情")}
 				side="bottom"
 			>
 				<button
@@ -367,9 +369,10 @@ export function GraphCostControl({ costs }: { costs: GraphCostSummary }) {
  * naming-kind runs never reach the list.
  */
 function GraphCostPanel({ costs }: { costs: GraphCostSummary }) {
-	const stageRows: [string, GraphCostSummary["stages"]["extraction"]][] = [
-		["Extraction", costs.stages.extraction],
-		["Audit", costs.stages.audit],
+	const { tr, locale } = useI18n();
+	const stageRows: [string, string, GraphCostSummary["stages"]["extraction"]][] = [
+		["extraction", tr("Extraction", "知识提取"), costs.stages.extraction],
+		["audit", tr("Audit", "核验审计"), costs.stages.audit],
 	];
 	// The displayed figures come from displayCostTotals (naming excluded —
 	// the pill and this panel must agree).
@@ -378,27 +381,30 @@ function GraphCostPanel({ costs }: { costs: GraphCostSummary }) {
 		<div className="w-80 max-w-[calc(100vw-1.5rem)] rounded-xl border bg-card/95 p-3 text-xs shadow-lg backdrop-blur">
 			<div className="mb-2 flex items-baseline justify-between">
 				<span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-					Graph pipeline costs
+					{tr("Graph pipeline costs", "图谱流水线费用")}
 				</span>
 				<span className="text-foreground tabular-nums">
 					{graphUsageLabel(costs)}
 					{unpricedRuns > 0 && (
-						<span className="text-muted-foreground"> · {unpricedRuns} unpriced</span>
+						<span className="text-muted-foreground"> · {tr("{n} unpriced", "{n} 次未计价", { n: unpricedRuns })}</span>
 					)}
 				</span>
 			</div>
 			<div className="flex flex-col gap-1">
-				{stageRows.map(([label, stage]) => (
-					<div key={label} className="flex items-baseline justify-between gap-2 text-[11px]">
+				{stageRows.map(([key, label, stage]) => (
+					<div key={key} className="flex items-baseline justify-between gap-2 text-[11px]">
 						<span className="shrink-0 text-muted-foreground">{label}</span>
 						<span className="min-w-0 text-right tabular-nums">
 							{fmtRunCost(stage.runs - stage.unpricedRuns - (stage.subscriptionRuns ?? 0) <= 0 ? null : stage.dollars, graphProviders(stage))}
 							{stage.unpricedRuns > 0 && (stage.runs - stage.unpricedRuns - (stage.subscriptionRuns ?? 0) > 0 || (stage.subscriptionRuns ?? 0) > 0) && (
-								<span className="text-muted-foreground"> +{stage.unpricedRuns} unpriced</span>
+								<span className="text-muted-foreground"> {tr("+{n} unpriced", "+{n} 次未计价", { n: stage.unpricedRuns })}</span>
 							)}
 							<span className="text-muted-foreground">
 								{" "}
-								· {fmtTokens(stage.tokens.inputTokens)} in / {fmtTokens(stage.tokens.outputTokens)} out
+								· {tr("{inTokens} in / {outTokens} out", "输入 {inTokens} / 输出 {outTokens}", {
+									inTokens: fmtTokens(stage.tokens.inputTokens),
+									outTokens: fmtTokens(stage.tokens.outputTokens),
+								})}
 							</span>
 						</span>
 					</div>
@@ -408,16 +414,16 @@ function GraphCostPanel({ costs }: { costs: GraphCostSummary }) {
 				{costs.runs.map((run) => (
 						<div key={run.startedAt} className="flex items-baseline justify-between gap-2 text-[11px]">
 							<span className="min-w-0 flex-1 truncate text-muted-foreground">
-								<span className="text-foreground/70">{timeAgo(run.startedAt)}</span>{" "}
+								<span className="text-foreground/70">{timeAgo(run.startedAt, locale)}</span>{" "}
 								{run.title}
 								{run.merged && (
 									<span className="text-muted-foreground">
 										{" "}
-										+{run.merged.nodes}n
+										{tr("+{n}n", "+{n}节点", { n: run.merged.nodes })}
 									</span>
 								)}
 							</span>
-							<span className="shrink-0 tabular-nums">{fmtRunCost(run.dollars, graphProviders(run))}{run.dollars === null && run.subscriptionRuns === 1 ? " +1 unpriced" : ""}</span>
+							<span className="shrink-0 tabular-nums">{fmtRunCost(run.dollars, graphProviders(run))}{run.dollars === null && run.subscriptionRuns === 1 ? ` ${tr("+1 unpriced", "+1 未计价")}` : ""}</span>
 						</div>
 					))}
 			</div>
@@ -438,6 +444,7 @@ function GraphSettingsControl({
 	settings: GraphRenderSettings;
 	changeSettings: (update: (cur: RenderSettings) => RenderSettings) => void;
 }) {
+	const { tr } = useI18n();
 	const [open, setOpen] = useState(false);
 	// Click anywhere outside (or Escape) closes the panel (2026-09-17) —
 	// the root wraps button + panel, so the toggle itself keeps working.
@@ -450,7 +457,7 @@ function GraphSettingsControl({
 		<div ref={rootRef} className="relative">
 			<Hint
 				// User language (tooltip wave) — "rendering" is internal.
-				label="Graph display settings"
+				label={tr("Graph display settings", "图谱显示设置")}
 				side="bottom"
 			>
 				<button
@@ -483,7 +490,7 @@ function GraphSettingsControl({
 							    number — src/core/render-settings.ts). Physics keeps the
 							    fine-grained log sliders (step 5). */}
 							<SettingSlider
-								label="Node size"
+								label={tr("Node size", "节点大小")}
 								min={0}
 								max={100}
 								step={10}
@@ -493,7 +500,7 @@ function GraphSettingsControl({
 									changeSettings((cur) => ({ ...cur, nodeSize: fromLadderPosition(p, NODE_SIZE_LADDER) }))}
 							/>
 							<SettingSlider
-								label="Edge width"
+								label={tr("Edge width", "连线粗细")}
 								min={0}
 								max={100}
 								step={10}
@@ -503,7 +510,7 @@ function GraphSettingsControl({
 									changeSettings((cur) => ({ ...cur, edgeWidth: fromLadderPosition(p, EDGE_WIDTH_LADDER) }))}
 							/>
 							<SettingSlider
-								label="Arrowhead size"
+								label={tr("Arrowhead size", "箭头大小")}
 								min={0}
 								max={100}
 								step={10}
@@ -513,7 +520,7 @@ function GraphSettingsControl({
 									changeSettings((cur) => ({ ...cur, arrowLength: fromLadderPosition(p, ARROW_LENGTH_LADDER) }))}
 							/>
 							<SettingSlider
-								label="Label size"
+								label={tr("Label size", "标签字号")}
 								min={0}
 								max={100}
 								step={10}
@@ -524,7 +531,7 @@ function GraphSettingsControl({
 							/>
 							{/* Display is absolute (ratio / 0.5): "1×" is the default, dead-center (owner, 2026-10-07). */}
 							<SettingSlider
-								label="Labels until zoom"
+								label={tr("Labels until zoom", "标签显示缩放阈值")}
 								min={0}
 								max={100}
 								step={10}
@@ -542,10 +549,10 @@ function GraphSettingsControl({
 						    the paint. */}
 						<div className="mt-1.5 flex flex-col gap-1.5 border-t pt-1.5">
 							<span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-								Regions
+								{tr("Regions", "聚类区域")}
 							</span>
 							<label className="flex cursor-pointer items-center justify-between text-[11px] text-muted-foreground">
-								<span>Background colors</span>
+								<span>{tr("Background colors", "背景色块")}</span>
 								<input
 									type="checkbox"
 									checked={settings.regions.enabled}
@@ -558,7 +565,7 @@ function GraphSettingsControl({
 								/>
 							</label>
 							<SettingSlider
-								label="Dilation"
+								label={tr("Dilation", "区域扩张")}
 								disabled={!regionTuning.enabled}
 								min={0}
 								max={100}
@@ -572,7 +579,7 @@ function GraphSettingsControl({
 									}))}
 							/>
 							<SettingSlider
-								label="Blur"
+								label={tr("Blur", "模糊程度")}
 								disabled={!regionTuning.enabled}
 								min={0}
 								max={100}
@@ -587,7 +594,7 @@ function GraphSettingsControl({
 								}
 							/>
 							<SettingSlider
-								label="Edge alpha"
+								label={tr("Edge alpha", "边缘不透明度")}
 								disabled={!regionTuning.enabled}
 								min={0}
 								max={100}
@@ -603,7 +610,7 @@ function GraphSettingsControl({
 							<label
 								className={`flex items-center justify-between gap-2 text-[11px] text-muted-foreground${!regionTuning.enabled ? " opacity-40" : ""}`}
 							>
-								<span>Bitmap resolution</span>
+								<span>{tr("Bitmap resolution", "位图分辨率")}</span>
 								<select
 									disabled={!regionTuning.enabled}
 									className="rounded-md border bg-background px-1.5 py-0.5 text-xs tabular-nums text-foreground"
@@ -628,7 +635,7 @@ function GraphSettingsControl({
 							    their own clusterLabels toggle. Size is screen px
 							    (constant at any zoom, unlike node labels). */}
 							<label className="flex cursor-pointer items-center justify-between text-[11px] text-muted-foreground">
-								<span>Cluster labels</span>
+								<span>{tr("Cluster labels", "聚类标签")}</span>
 								<input
 									type="checkbox"
 									checked={settings.clusterLabels}
@@ -637,7 +644,7 @@ function GraphSettingsControl({
 								/>
 							</label>
 							<SettingSlider
-								label="Cluster label size"
+								label={tr("Cluster label size", "聚类标签字号")}
 								disabled={!settings.clusterLabels}
 								min={0}
 								max={100}
@@ -663,10 +670,10 @@ function GraphSettingsControl({
 						    anchor + its gray-out-able controls last. */}
 						<div className="mt-1.5 flex flex-col gap-1.5 border-t pt-1.5">
 							<span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-								Physics
+								{tr("Physics", "物理力学")}
 							</span>
 							<SettingSlider
-								label="Node repulsion"
+								label={tr("Node repulsion", "节点斥力")}
 								min={0}
 								max={100}
 								step={5}
@@ -679,7 +686,7 @@ function GraphSettingsControl({
 									}))}
 							/>
 							<SettingSlider
-								label="Edge attraction"
+								label={tr("Edge attraction", "连线引力")}
 								min={0}
 								max={100}
 								step={5}
@@ -692,7 +699,7 @@ function GraphSettingsControl({
 									}))}
 							/>
 							<SettingSlider
-								label="Edge length"
+								label={tr("Edge length", "连线长度")}
 								min={0}
 								max={100}
 								step={5}
@@ -705,7 +712,7 @@ function GraphSettingsControl({
 									}))}
 							/>
 							<SettingSlider
-								label="Central pull"
+								label={tr("Central pull", "中心引力")}
 								min={0}
 								max={100}
 								step={5}
@@ -718,12 +725,12 @@ function GraphSettingsControl({
 									}))}
 							/>
 							<SettingSlider
-								label="Cluster pull"
+								label={tr("Cluster pull", "聚类引力")}
 								min={0}
 								max={100}
 								step={5}
 								value={toOffSliderPosition(physicsTuning.clusterPull, CLUSTER_PULL_RANGE.min, CLUSTER_PULL_RANGE.max)}
-								display={physicsTuning.clusterPull <= 0 ? "off" : sizeDisplay(physicsTuning.clusterPull)}
+								display={physicsTuning.clusterPull <= 0 ? tr("off", "关闭") : sizeDisplay(physicsTuning.clusterPull)}
 								onChange={(p) =>
 									changeSettings((cur) => ({
 										...cur,
@@ -731,7 +738,7 @@ function GraphSettingsControl({
 									}))}
 							/>
 							<SettingSlider
-								label="Friction"
+								label={tr("Friction", "阻尼摩擦")}
 								min={0}
 								max={100}
 								step={5}
@@ -748,7 +755,7 @@ function GraphSettingsControl({
 							    controls at the very bottom — the grayed group reads
 							    as a self-contained sub-section. */}
 							<label className="flex items-center justify-between gap-2 text-xs">
-								Depth anchor
+								{tr("Depth anchor", "层级锚定")}
 								<select
 									className="rounded border bg-background px-1 py-0.5 text-xs"
 									value={physicsTuning.depthMode}
@@ -759,13 +766,13 @@ function GraphSettingsControl({
 										}))
 									}
 								>
-									<option value="off">Off</option>
-									<option value="vertical">Vertical (up)</option>
-									<option value="radial">Radial (outward)</option>
+									<option value="off">{tr("Off", "关闭")}</option>
+									<option value="vertical">{tr("Vertical (up)", "垂直（向上）")}</option>
+									<option value="radial">{tr("Radial (outward)", "径向（向外）")}</option>
 								</select>
 							</label>
 							<SettingSlider
-								label="Depth strength"
+								label={tr("Depth strength", "层级力度")}
 								disabled={physicsTuning.depthMode === "off"}
 								min={0}
 								max={100}
@@ -779,7 +786,7 @@ function GraphSettingsControl({
 									}))}
 							/>
 							<SettingSlider
-								label="Depth spacing"
+								label={tr("Depth spacing", "层级间距")}
 								disabled={physicsTuning.depthMode === "off"}
 								min={0}
 								max={100}
@@ -793,7 +800,7 @@ function GraphSettingsControl({
 									}))}
 							/>
 							<SettingSlider
-								label="Base ring radius"
+								label={tr("Base ring radius", "基础环半径")}
 								disabled={physicsTuning.depthMode !== "radial"}
 								min={0}
 								max={100}
@@ -849,13 +856,14 @@ export function GraphChromeRow({
 	 *  2026-09-29). */
 	onOpenChains: () => void;
 }) {
+	const { tr } = useI18n();
 	return (
 		<>
 			{!isEmpty && (
 				<div className="graph-chrome-fade-in w-56 min-w-0 shrink rounded-xl border bg-card/85 px-1 py-[3px] shadow-lg backdrop-blur">
 					<Hint
 						// ⌘F focuses node search (surface-scoped registry action).
-						label="Search nodes"
+						label={tr("Search nodes", "搜索节点")}
 						action="find"
 						side="bottom"
 					>
@@ -865,22 +873,22 @@ export function GraphChromeRow({
 							ref={searchInputRef}
 							value={query}
 							onChange={(e) => onQuery(e.target.value)}
-							placeholder="Search nodes…"
-							aria-label="Search nodes"
+							placeholder={tr("Search nodes…", "搜索节点…")}
+							aria-label={tr("Search nodes", "搜索节点")}
 							spellCheck={false}
 							className="h-7 w-full rounded-lg border bg-background pl-8 text-xs outline-none placeholder:text-muted-foreground focus:border-ring"
 						/>
 					</div>
 					</Hint>
 					{noMatch && (
-						<div className="px-1.5 pt-1 text-[11px] text-muted-foreground">No matching nodes.</div>
+						<div className="px-1.5 pt-1 text-[11px] text-muted-foreground">{tr("No matching nodes.", "没有匹配的节点。")}</div>
 					)}
 				</div>
 			)}
 			{/* The chain table (chains overlay, owner plan 2026-09-29). Own
 			    container (36px band), between the search and Import. */}
 			<div className="graph-chrome-fade-in shrink-0 rounded-xl border bg-card/85 px-1 py-[3px] shadow-lg backdrop-blur">
-					<Hint label="Every reasoning chain" side="bottom">
+					<Hint label={tr("Every reasoning chain", "所有推理链")} side="bottom">
 						<button
 							type="button"
 							onClick={onOpenChains}
@@ -888,7 +896,7 @@ export function GraphChromeRow({
 							className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent"
 						>
 							<ListTreeIcon className="size-3" />
-							Chains
+							{tr("Chains", "推理链")}
 						</button>
 					</Hint>
 				</div>
@@ -983,6 +991,19 @@ export function GraphView({
 	onPracticeSelectionChange?: (nodes: { id: string; name: string; statement: string }[]) => void;
 	onChainSelectClose?: () => void;
 }) {
+	const { tr, isZh } = useI18n();
+	const translateRunPhase = (phase: string) => {
+		if (!isZh) return phase;
+		switch (phase) {
+			case "queued": return "排队中";
+			case "extracting": return "提取中";
+			case "auditing": return "核验中";
+			case "merging": return "合并中";
+			case "embedding": return "向量化中";
+			case "settling": return "布局收敛中";
+			default: return phase;
+		}
+	};
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const interactions = useInteractionLayers();
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1512,10 +1533,10 @@ export function GraphView({
 				<div className="flex h-full w-full items-center justify-center px-4">
 					<div className="flex flex-col items-center gap-3 text-center text-muted-foreground">
 						<WaypointsIcon className="size-10 opacity-40" strokeWidth={1.25} />
-						<div className="text-lg font-medium text-foreground">Knowledge graph</div>
+						<div className="text-lg font-medium text-foreground">{tr("Knowledge graph", "知识图谱")}</div>
 						<div className="max-w-sm text-sm">
-							<p>Start a session to begin learning.</p>
-							<p className="mt-1 text-xs">Attach your material with the paperclip or drag and drop.</p>
+							<p>{tr("Start a session to begin learning.", "发起一个会话即可开始学习。")}</p>
+							<p className="mt-1 text-xs">{tr("Attach your material with the paperclip or drag and drop.", "点击回形针图标或拖放文件以附加你的学习资料。")}</p>
 						</div>
 					</div>
 				</div>
@@ -1557,7 +1578,7 @@ export function GraphView({
 						}}
 						className="flex items-center rounded-lg px-2.5 py-1.5 text-left text-muted-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
 					>
-						Delete
+						{tr("Delete", "删除")}
 					</button>
 				</MenuShell>
 			)}
@@ -1653,9 +1674,9 @@ export function GraphView({
 					className="flex items-center gap-2 rounded-full border bg-card/85 px-3 py-1.5 text-xs text-muted-foreground shadow-lg backdrop-blur"
 				>
 					<Loader2Icon className="size-3.5 shrink-0 animate-spin" />
-					<span className="capitalize">{run.phase}</span>
+					<span className="capitalize">{translateRunPhase(run.phase)}</span>
 					<span className="max-w-48 truncate text-foreground">{run.title}</span>
-					<span className="tabular-nums">{Math.max(0, Math.round((Date.now() - run.startedAt) / 1000))}s</span>
+					<span className="tabular-nums">{Math.max(0, Math.round((Date.now() - run.startedAt) / 1000))}{tr("s", "秒")}</span>
 				</div>
 			))}
 			</div>
@@ -1674,7 +1695,7 @@ export function GraphView({
 					<NodeCardText name={selected.node.name} statement={selected.node.statement} />
 					{selected.sourceIds.length > 0 ? (
 						<div className="mt-3 flex flex-col gap-1">
-							<div className="text-xs text-muted-foreground">Sessions</div>
+							<div className="text-xs text-muted-foreground">{tr("Sessions", "相关会话")}</div>
 							{selected.sourceIds.map((sourceId) => {
 								// An imported-notes file: a STATIC entry — the path,
 								// plain text, never a link (no session to open).
@@ -1703,7 +1724,7 @@ export function GraphView({
 							})}
 						</div>
 					) : (
-						<div className="mt-3 text-xs text-muted-foreground">No sessions recorded.</div>
+						<div className="mt-3 text-xs text-muted-foreground">{tr("No sessions recorded.", "暂无关联会话记录。")}</div>
 					)}
 				</div>
 			)}

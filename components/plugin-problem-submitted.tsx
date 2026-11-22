@@ -8,6 +8,7 @@ import { usePlugins } from "./plugins";
 import { problemMountContext } from "./plugin-problem-dock";
 import { ThinkingBlock } from "./thinking-block";
 import { SubmittedImages } from "./submitted-images";
+import { useI18n } from "@/components/i18n";
 
 export function PluginProblemSubmitted(props: { data: unknown; snapshot?: PluginProblemSnapshot | null; chatId: string }) {
   const { snapshot } = usePlugins();
@@ -17,10 +18,12 @@ export function PluginProblemSubmitted(props: { data: unknown; snapshot?: Plugin
 export function PluginProblemSubmittedContent({ data, snapshot, chatId, registration }: {
   data: unknown; snapshot?: PluginProblemSnapshot | null; chatId: string; registration?: ProblemRendererRegistration;
 }) {
+  const { tr } = useI18n();
   const submitted = readPluginProblemSubmission(data);
-  return submitted ? <SubmittedBody submitted={submitted} snapshot={snapshot} chatId={chatId} registration={registration} /> : <p role="status">Problem unavailable</p>;
+  return submitted ? <SubmittedBody submitted={submitted} snapshot={snapshot} chatId={chatId} registration={registration} /> : <p role="status">{tr("Problem unavailable", "练习题不可用")}</p>;
 }
 function SubmittedBody({ submitted, snapshot, chatId, registration }: { submitted: PluginProblemSubmission; snapshot?: PluginProblemSnapshot | null; chatId: string; registration?: ProblemRendererRegistration }) {
+  const { tr } = useI18n();
   const root = useRef<HTMLDivElement>(null), header = useRef<HTMLSpanElement>(null), footer = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   const bound = snapshot?.problemId === submitted.problemId && snapshot.pluginId === submitted.pluginId && snapshot.typeId === submitted.typeId && snapshot.contractVersion === submitted.contractVersion;
@@ -43,13 +46,13 @@ function SubmittedBody({ submitted, snapshot, chatId, registration }: { submitte
     return release;
   }, [mount, snapshot?.problemId, chatId, submitted.submittedAt]);
   return <div data-testid="plugin-problem-submitted" className="rounded-2xl border bg-card px-4 py-3">
-    <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{snapshot?.label ?? "Problem"}<span ref={header} className="inline-flex items-center" /></div>
+    <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{snapshot?.label ?? tr("Problem", "练习题")}<span ref={header} className="inline-flex items-center" /></div>
     <div ref={root} hidden={!mount || failed} />
     {(!mount || failed) && <div className="whitespace-pre-wrap text-sm">{typeof submitted.submission === "string" ? submitted.submission : JSON.stringify(submitted.submission, null, 2)}
       {submitted.processing && <pre className="mt-2 overflow-auto text-xs">{JSON.stringify(submitted.processing, null, 2)}</pre>}
     </div>}
     <SubmittedImages images={submitted.images?.submission} />
-    {(submitted.thinking !== "" || !!submitted.images?.thinking?.length) && <ThinkingBlock label="YOUR THINKING" text={submitted.thinking} images={submitted.images?.thinking} inCard />}
+    {(submitted.thinking !== "" || !!submitted.images?.thinking?.length) && <ThinkingBlock label={tr("YOUR THINKING", "你的思考")} text={submitted.thinking} images={submitted.images?.thinking} inCard />}
     <div ref={footer} />
   </div>;
 }

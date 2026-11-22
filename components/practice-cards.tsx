@@ -2,6 +2,7 @@
 
 import { ToolContentResponse } from "@/components/ai-elements/message";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { useI18n } from "@/components/i18n";
 import type { ArtifactPartProps } from "@/src/core";
 
 /**
@@ -59,6 +60,7 @@ export interface PracticeThinkingData {
 }
 
 export function ProblemCard({ part }: ArtifactPartProps) {
+	const { tr } = useI18n();
 	// Always open, no chevron (owner round, 2026-10-05): the record IS the
 	// statement — same container + eyebrow discipline as the answered card
 	// and the dock (which mirrors this in Slice D). The commitment never
@@ -67,7 +69,7 @@ export function ProblemCard({ part }: ArtifactPartProps) {
 	const statement = typeof input.statement === "string" ? input.statement : "";
 	return (
 		<div data-testid="problem-card" className="lh-card-enter my-1 rounded-xl border bg-card p-4">
-			<div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Problem</div>
+			<div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{tr("Problem", "练习题")}</div>
 			<div className="lh-prose text-[15px]">
 				<ToolContentResponse>{statement}</ToolContentResponse>
 			</div>
@@ -75,12 +77,12 @@ export function ProblemCard({ part }: ArtifactPartProps) {
 	);
 }
 
-const OUTCOME_LABEL: Record<string, string> = {
-	solved: "Solved",
-	solvedWithHints: "Solved with hints",
-	movedOn: "Moved on",
-	surrendered: "Surrendered",
-	dismissed: "Dismissed",
+const OUTCOME_LABEL: Record<string, { en: string; zh: string }> = {
+	solved: { en: "Solved", zh: "已解出" },
+	solvedWithHints: { en: "Solved with hints", zh: "提示后解出" },
+	movedOn: { en: "Moved on", zh: "已跳过" },
+	surrendered: { en: "Surrendered", zh: "已放弃" },
+	dismissed: { en: "Dismissed", zh: "已关闭" },
 };
 
 /* The outcome chips (owner round 3, 2026-10-05): the EXACT register of the
@@ -95,6 +97,7 @@ const OUTCOME_COLOR: Record<string, string | undefined> = {
 };
 
 export function ConcludeCard({ part }: ArtifactPartProps) {
+	const { tr } = useI18n();
 	// The conclusion redesigned (owner round, 2026-10-05): the SOLUTION is
 	// the hero — the modelSolution committed at pose time (part.reveal, the
 	// view-seam join), shown verbatim, never re-authored. The verdict sits
@@ -112,10 +115,12 @@ export function ConcludeCard({ part }: ArtifactPartProps) {
 	if (outcome === "dismissed") {
 		return (
 			<div data-testid="conclude-card" className="my-1 px-1 text-sm text-muted-foreground/70">
-				Problem dismissed.
+				{tr("Problem dismissed.", "已关闭该练习题。")}
 			</div>
 		);
 	}
+
+	const outcomeEntry = OUTCOME_LABEL[outcome];
 
 	return (
 		<div data-testid="conclude-card" className="lh-card-enter relative my-1 rounded-xl border bg-card p-4">
@@ -123,9 +128,9 @@ export function ConcludeCard({ part }: ArtifactPartProps) {
 			    eyebrow + the outcome in the quiz cards' EXACT chip register —
 			    no more two same-weight headings stacked. */}
 			<div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-				Concluded
-				{(OUTCOME_LABEL[outcome] ?? "") !== "" && outcome !== "dismissed" && (
-					<StatusBadge text={OUTCOME_LABEL[outcome] ?? ""} color={OUTCOME_COLOR[outcome]} />
+				{tr("Concluded", "已结束")}
+				{outcomeEntry && outcome !== "dismissed" && (
+					<StatusBadge text={tr(outcomeEntry.en, outcomeEntry.zh)} color={OUTCOME_COLOR[outcome]} />
 				)}
 			</div>
 			{/* The verdict — plain prose under the heading, no 'Verdict:' label
@@ -141,7 +146,7 @@ export function ConcludeCard({ part }: ArtifactPartProps) {
 				<>
 					<div className="my-3 border-t" />
 					<div>
-						<div className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Model solution</div>
+						<div className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{tr("Model solution", "参考解答")}</div>
 						<div className="lh-prose text-[15px]">
 							<ToolContentResponse>{reveal}</ToolContentResponse>
 						</div>
@@ -176,6 +181,7 @@ function MetadataPopover({
 	concludeInput: { outcome?: string; rung?: unknown; missClass?: unknown; retest?: unknown };
 	problemInput: { mode?: unknown; target?: unknown };
 }) {
+	const { tr } = useI18n();
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement | null>(null);
 	const rootRef = useRef<HTMLDivElement | null>(null);
@@ -240,7 +246,7 @@ function MetadataPopover({
 				aria-expanded={open}
 				className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
 			>
-				Metadata
+				{tr("Metadata", "元数据")}
 			</button>
 			{open &&
 				anchor &&
@@ -258,12 +264,12 @@ function MetadataPopover({
 						className="w-80 max-w-[calc(100vw-1rem)] rounded-xl border bg-card p-4 text-left shadow-lg"
 					>
 				<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-						<dt className="text-muted-foreground">Mode</dt>
+						<dt className="text-muted-foreground">{tr("Mode", "模式")}</dt>
 						<dd className="font-mono">{mode || "—"}</dd>
-						<dt className="text-muted-foreground">Targets</dt>
+						<dt className="text-muted-foreground">{tr("Targets", "目标知识点")}</dt>
 						<dd className="font-mono">
 							{targets.length === 0 ? (
-								"untagged"
+								tr("untagged", "未标记")
 							) : (
 								<span>
 									{targets.map((t, i) => (
@@ -275,14 +281,14 @@ function MetadataPopover({
 								</span>
 							)}
 						</dd>
-						<dt className="text-muted-foreground">Outcome</dt>
+						<dt className="text-muted-foreground">{tr("Outcome", "结果")}</dt>
 						<dd className="font-mono">{outcome || "—"}</dd>
-						<dt className="text-muted-foreground">Hint rung</dt>
-						<dd className="font-mono">{rung || "none"}</dd>
-						<dt className="text-muted-foreground">Miss class</dt>
-						<dd className="font-mono">{miss || "none"}</dd>
-						<dt className="text-muted-foreground">Retest</dt>
-						<dd className="font-mono">{retest === undefined ? "—" : retest ? "yes" : "no"}</dd>
+						<dt className="text-muted-foreground">{tr("Hint rung", "提示层级")}</dt>
+						<dd className="font-mono">{rung || tr("none", "无")}</dd>
+						<dt className="text-muted-foreground">{tr("Miss class", "错误类型")}</dt>
+						<dd className="font-mono">{miss || tr("none", "无")}</dd>
+						<dt className="text-muted-foreground">{tr("Retest", "需要复测")}</dt>
+						<dd className="font-mono">{retest === undefined ? "—" : retest ? tr("yes", "是") : tr("no", "否")}</dd>
 					</dl>
 					</div>,
 					interactions.getPortalContainer(triggerRef.current)!,
@@ -292,9 +298,10 @@ function MetadataPopover({
 }
 
 export function ThinkingCard({ data }: { data: PracticeThinkingData }) {
+	const { tr } = useI18n();
 	// The unified row (owner rounds, 2026-10-05): one style, one label —
 	// 50%-italic quote block on expand. Legacy records' commit flag is
 	// deliberately unread (one lane now). A TRANSCRIPT row (owner round,
 	// 2026-10-07): full-width band + rail, arriving expanded.
-	return <ThinkingBlock testId="thinking-card" label="YOUR THINKING" text={data.text} images={data.images} defaultOpen />;
+	return <ThinkingBlock testId="thinking-card" label={tr("YOUR THINKING", "你的思考")} text={data.text} images={data.images} defaultOpen />;
 }

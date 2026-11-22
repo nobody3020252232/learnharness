@@ -8,6 +8,8 @@
 
 <p align="center"><strong>An agent harness for learning.</strong></p>
 
+> **简体中文汉化版（基于上游 v0.7.0）**：本分支为 `amosblomqvist/learnharness` 的双语 UI 汉化版本，默认以**简体中文**启动，覆盖主界面、设置弹窗、知识图谱、会话与练习区、Electron 桌面菜单及 4 个内置核心插件（闪卡、编程题、画板、富代码块），同时保留上游完整的 Agent 提示词与教学协议。可随时在 **设置 → 外观 / 通用 → 界面语言** 中一键切换 **简体中文 / English**。
+
 <p align="center">
   <a href="https://learnharness.ai">Download</a> ·
   <a href="#how-it-works">How it works</a> ·

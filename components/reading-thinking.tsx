@@ -4,6 +4,7 @@ import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from "
 import { joinDictation, useDictationTarget } from "@/components/dictation";
 import { composingQuestionKey, pluginQuestionKeySuppressed } from "./plugin-question-keys";
 import { PathInput } from "@/components/path-input";
+import { useI18n } from "@/components/i18n";
 import { useOptionalInteractionLayers } from "./interaction-layers";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
 
@@ -45,6 +46,7 @@ export function ReadingThinkingField({
 	claim: boolean;
 	inputRef?: RefObject<HTMLDivElement | null>;
 }) {
+	const { tr } = useI18n();
 	const controller = useOptionalInteractionLayers();
 	const [draft, setDraft] = useState(value);
 	// Appends may arrive back-to-back before React commits. Like Chat's
@@ -66,7 +68,7 @@ export function ReadingThinkingField({
 			className="pointer-events-auto mb-2 rounded-2xl border bg-card/60 px-3 py-2 transition-colors focus-within:border-primary/50"
 		>
 			<div className="pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-				Thinking while reading
+				{tr("Thinking while reading", "阅读时的思考")}
 			</div>
 			<PathInput
 				ref={inputRef}
@@ -112,7 +114,7 @@ export function ReadingThinkingField({
 						e.currentTarget.blur();
 					}
 				}}
-				placeholder="Whatever comes to mind as you read."
+				placeholder={tr("Whatever comes to mind as you read.", "记录阅读时脑海中的想法。")}
 				className="field-sizing-content lh-input max-h-40 w-full resize-none bg-transparent py-0.5 outline-none placeholder:text-muted-foreground/70"
 			/>
 		</div>
